@@ -9,6 +9,7 @@ from app.api.v1 import (
     nodes,
     projects,
     publish,
+    share,
     skill_runs,
     telegram_targets,
     transcription,
@@ -28,3 +29,4 @@ api_router.include_router(transcription.router)
 api_router.include_router(telegram_targets.router)
 api_router.include_router(publish.router)
 api_router.include_router(voice.router)
+api_router.include_router(share.router)

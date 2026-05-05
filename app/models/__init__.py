@@ -10,6 +10,7 @@ from app.models.knowledge import (
     VoiceSample,
 )
 from app.models.publish import PublishLog, PublishStatus, TelegramTarget
+from app.models.share import CanvasShareToken
 
 __all__ = [
     "Base",
@@ -32,4 +33,5 @@ __all__ = [
     "PublishLog",
     "PublishStatus",
     "TelegramTarget",
+    "CanvasShareToken",
 ]
