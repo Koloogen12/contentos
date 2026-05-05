@@ -1,11 +1,12 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DbSession
-from app.models.canvas import Canvas
+from app.models.canvas import Canvas, Edge, Node
 from app.schemas.canvas import (
     CanvasCreate,
     CanvasDetail,
@@ -14,6 +15,11 @@ from app.schemas.canvas import (
     EdgeOut,
     NodeOut,
 )
+
+
+class CanvasFromTemplate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    project_id: uuid.UUID | None = None
 
 router = APIRouter(prefix="/canvases", tags=["canvases"])
 
@@ -110,3 +116,94 @@ async def save_as_template(canvas_id: uuid.UUID, current: CurrentUser, db: DbSes
     canvas.is_template = True
     await db.flush()
     return CanvasOut.model_validate(canvas)
+
+
+@router.post(
+    "/from-template/{template_id}",
+    response_model=CanvasDetail,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_from_template(
+    template_id: uuid.UUID,
+    payload: CanvasFromTemplate,
+    current: CurrentUser,
+    db: DbSession,
+) -> CanvasDetail:
+    """Clone a template (its nodes and edges) into a fresh user canvas.
+
+    The template must be owned by the same org. We don't carry over any
+    runtime data — node.data is reset to {} (or to a minimal seed kept on
+    the template node) and node.status is reset to 'idle'.
+    """
+    template = await db.scalar(
+        select(Canvas)
+        .where(
+            Canvas.id == template_id,
+            Canvas.organization_id == current.organization_id,
+            Canvas.is_template.is_(True),
+        )
+        .options(selectinload(Canvas.nodes), selectinload(Canvas.edges))
+    )
+    if template is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Template not found")
+
+    canvas = Canvas(
+        organization_id=current.organization_id,
+        project_id=payload.project_id,
+        name=payload.name,
+        description=template.description,
+        is_template=False,
+    )
+    db.add(canvas)
+    await db.flush()
+
+    node_id_map: dict[uuid.UUID, uuid.UUID] = {}
+    for src in template.nodes:
+        copied = Node(
+            canvas_id=canvas.id,
+            type=src.type,
+            position_x=src.position_x,
+            position_y=src.position_y,
+            data=_clean_template_data(src.type, src.data or {}),
+            status="idle",
+        )
+        db.add(copied)
+        await db.flush()
+        node_id_map[src.id] = copied.id
+
+    for e in template.edges:
+        new_source = node_id_map.get(e.source_node_id)
+        new_target = node_id_map.get(e.target_node_id)
+        if new_source and new_target:
+            db.add(
+                Edge(
+                    canvas_id=canvas.id,
+                    source_node_id=new_source,
+                    target_node_id=new_target,
+                )
+            )
+    await db.flush()
+
+    canvas = await db.scalar(
+        select(Canvas)
+        .where(Canvas.id == canvas.id)
+        .options(selectinload(Canvas.nodes), selectinload(Canvas.edges))
+    )
+    return CanvasDetail(
+        **CanvasOut.model_validate(canvas).model_dump(),
+        nodes=[NodeOut.model_validate(n) for n in canvas.nodes],
+        edges=[EdgeOut.model_validate(e) for e in canvas.edges],
+    )
+
+
+_TEMPLATE_KEEP_FIELDS = {
+    "source": {"input_type", "platform", "notes"},
+    "extract": set(),
+    "format": {"platform"},
+}
+
+
+def _clean_template_data(node_type: str, data: dict) -> dict:
+    """Strip runtime fields from a template node before cloning."""
+    keep = _TEMPLATE_KEEP_FIELDS.get(node_type, set())
+    return {k: v for k, v in data.items() if k in keep}

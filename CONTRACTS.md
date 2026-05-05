@@ -124,11 +124,20 @@ POST /api/v1/canvases/{canvas_id}/save-as-template
 → 200 CanvasOut (с is_template=true)
 ```
 
+### Создать канвас из шаблона (клонирует ноды и связи)
+```http
+POST /api/v1/canvases/from-template/{template_id}
+{ "name": "Неделя 21", "project_id": null }
+→ 201 CanvasDetail
+```
+Ноды копируются с новыми UUID, runtime-поля (`status`, скилл-результаты) сбрасываются. Шаблоны привязаны к организации; кросс-org клонирование пока не поддерживается.
+
 ### Список шаблонов
 ```http
 GET /api/v1/canvases/templates
 → 200 CanvasOut[]
 ```
+При signup организация автоматически получает три стартовых шаблона: «YouTube → Telegram», «Статья → LinkedIn», «Идея → Карусель».
 
 ---
 
@@ -214,16 +223,46 @@ TalkingPoint = {
 
 **format:**
 ```ts
+// telegram | linkedin
 {
-  platform: "telegram" | "instagram" | "linkedin" | "twitter" | "article",
-  talking_point_text: string,    // snapshot входа
+  platform: "telegram" | "linkedin",
+  talking_point_text: string,
   hooks: string[],               // 3 варианта
   selected_hook_index: number,
   body: string,
   cta: string,
   full_text: string              // готовый текст для копирования/публикации
 }
+
+// carousel
+{
+  platform: "carousel",
+  talking_point_text: string,
+  slides: { title: string, body: string, is_cover?: boolean }[],
+  summary: string,
+  cta: string,
+  full_text: string              // плоское представление всех слайдов + CTA
+}
+
+// reels
+{
+  platform: "reels",
+  talking_point_text: string,
+  hooks: string[],
+  selected_hook_index: number,
+  beats: { script: string, visual: string, duration_sec: number }[],
+  cta: string,
+  caption: string,
+  duration_sec: number,
+  full_text: string
+}
 ```
+
+Сервер выбирает скилл автоматически по `data.platform`:
+- `telegram` → `telegram_creator`
+- `linkedin` → `linkedin_creator`
+- `carousel` → `carousel_creator`
+- `reels` → `reels_creator`
 
 ---
 

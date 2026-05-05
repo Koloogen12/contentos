@@ -24,6 +24,7 @@ from app.services.auth import (
     make_refresh_token,
     verify_password,
 )
+from app.services.templates_seed import seed_default_templates
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -64,6 +65,8 @@ async def register(payload: RegisterRequest, db: DbSession) -> TokenPair:
 
     db.add(BrandContext(organization_id=org.id, data=DEFAULT_BRAND_CONTEXT))
     await db.flush()
+
+    await seed_default_templates(db, org.id)
 
     return TokenPair(
         access_token=make_access_token(user_id=user.id, organization_id=org.id),
