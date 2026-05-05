@@ -4,7 +4,7 @@ from __future__ import annotations
 from arq.connections import RedisSettings, create_pool
 
 from app.config import settings
-from app.workers.tasks import run_skill
+from app.workers.tasks import publish_to_telegram, run_skill
 
 _pool = None
 
@@ -30,7 +30,7 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [run_skill]
+    functions = [run_skill, publish_to_telegram]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = _redis_settings()

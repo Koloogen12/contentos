@@ -99,3 +99,23 @@ async def embed(text: str, model: str | None = None) -> list[float]:
         input=text,
     )
     return list(response.data[0].embedding)
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=True,
+)
+async def transcribe_audio(local_path, model: str | None = None) -> str:
+    """Whisper transcription. local_path is pathlib.Path or str pointing to a
+    file on disk small enough for the provider (we chunk callers if not)."""
+    with open(local_path, "rb") as f:
+        response = await _client().audio.transcriptions.create(
+            model=model or settings.COMETAPI_MODEL_WHISPER,
+            file=f,
+        )
+    text = getattr(response, "text", None)
+    if not text:
+        raise RuntimeError("Empty whisper response")
+    return text

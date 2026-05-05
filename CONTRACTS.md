@@ -289,7 +289,7 @@ SSE endpoint принимает access token либо через `Authorization:
 
 ---
 
-## 6. Транскрипция (планируется)
+## 6. Транскрипция
 
 ```http
 POST /api/v1/nodes/{node_id}/transcribe-youtube
@@ -331,7 +331,7 @@ GET    /api/v1/nodes/{id}/knowledge              → KnowledgeItemOut[]
 
 ---
 
-## 8. Publishing (Telegram, MVP)
+## 8. Publishing (Telegram)
 
 ```http
 GET    /api/v1/telegram-targets          → TelegramTargetOut[]

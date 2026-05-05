@@ -8,7 +8,10 @@ from app.api.v1 import (
     knowledge,
     nodes,
     projects,
+    publish,
     skill_runs,
+    telegram_targets,
+    transcription,
 )
 
 api_router = APIRouter(prefix="/api/v1")
@@ -20,3 +23,6 @@ api_router.include_router(skill_runs.router)
 api_router.include_router(projects.router)
 api_router.include_router(brand_context.router)
 api_router.include_router(knowledge.router)
+api_router.include_router(transcription.router)
+api_router.include_router(telegram_targets.router)
+api_router.include_router(publish.router)
