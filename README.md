@@ -65,6 +65,7 @@ scripts/                 import_knowledge.py, etc.
 | `linkedin_creator` | format node, `platform=linkedin` | hooks (3) + body + CTA + full_text |
 | `carousel_creator` | format node, `platform=carousel` | 5–10 slides + summary + CTA |
 | `reels_creator` | format node, `platform=reels` | 3 hooks + 4–6 beats + CTA + caption |
+| `hooks_creator` | format node, `platform=hooks` | 5–10 hooks tagged by trigger type |
 | `transcribe_youtube` | source node, YouTube URL | captions or whisper transcript + metadata |
 | `transcribe_audio` | source node, audio upload | whisper transcript (auto-chunked >25 MB) |
 

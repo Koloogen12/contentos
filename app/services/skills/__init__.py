@@ -1,6 +1,7 @@
 """Skill registry — importing the modules registers them via @register(...)."""
 from app.services.skills import (  # noqa: F401
     carousel_creator,
+    hooks_creator,
     linkedin_creator,
     reels_script_writer,
     telegram_creator,

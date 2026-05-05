@@ -46,6 +46,7 @@ _FORMAT_PLATFORM_TO_SKILL = {
     "linkedin": "linkedin_creator",
     "carousel": "carousel_creator",
     "reels": "reels_creator",
+    "hooks": "hooks_creator",
 }
 
 

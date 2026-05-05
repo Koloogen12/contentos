@@ -270,6 +270,14 @@ TalkingPoint = {
   duration_sec: number,
   full_text: string
 }
+
+// hooks (банк хуков по тезису)
+{
+  platform: "hooks",
+  talking_point_text: string,
+  hooks_bank: { text: string, trigger: "paradox" | "number" | "contrast" | "provocation" | "story" | "dissonance" | "question" | "other" }[],
+  full_text: string
+}
 ```
 
 Сервер выбирает скилл автоматически по `data.platform`:
@@ -277,6 +285,7 @@ TalkingPoint = {
 - `linkedin` → `linkedin_creator`
 - `carousel` → `carousel_creator`
 - `reels` → `reels_creator`
+- `hooks` → `hooks_creator`
 
 ---
 
