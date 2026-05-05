@@ -249,7 +249,7 @@ DELETE /api/v1/edges/{edge_id}
 
 ---
 
-## 5. Skill Runs (планируется в следующей итерации)
+## 5. Skill Runs
 
 ### Запустить скилл на ноде
 ```http
@@ -306,7 +306,7 @@ GET /api/v1/nodes/{node_id}/youtube-meta?url=...
 
 ---
 
-## 7. Knowledge Layer (планируется в MVP, после CRUD)
+## 7. Knowledge Layer
 
 ```http
 GET    /api/v1/projects                  → ProjectOut[]
