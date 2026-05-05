@@ -15,14 +15,16 @@ from aiogram.client.default import DefaultBotProperties
 
 from app.config import settings
 from app.models.publish import TelegramTarget
+from app.services import secrets
 
 logger = logging.getLogger(__name__)
 
 
 def _resolve_token(target: TelegramTarget) -> str:
     if target.bot_token_encrypted:
-        # TODO(v2): decrypt symmetrically. For MVP we assume plaintext or empty.
-        return target.bot_token_encrypted
+        decrypted = secrets.decrypt(target.bot_token_encrypted)
+        if decrypted:
+            return decrypted
     if settings.TELEGRAM_BOT_TOKEN:
         return settings.TELEGRAM_BOT_TOKEN
     raise RuntimeError("Telegram bot token is not configured")

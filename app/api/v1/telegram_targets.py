@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from app.api.deps import CurrentUser, DbSession
 from app.models.publish import TelegramTarget
 from app.schemas.publish import TelegramTargetCreate, TelegramTargetOut, TelegramTargetUpdate
+from app.services import secrets
 
 router = APIRouter(prefix="/telegram-targets", tags=["telegram-targets"])
 
@@ -49,7 +50,7 @@ async def create_target(
         organization_id=current.organization_id,
         title=payload.title,
         chat_id=payload.chat_id,
-        bot_token_encrypted=payload.bot_token,  # TODO(v2): encrypt at rest
+        bot_token_encrypted=secrets.encrypt(payload.bot_token),
         is_default=payload.is_default,
     )
     db.add(obj)
@@ -68,7 +69,11 @@ async def update_target(
 
     data = payload.model_dump(exclude_unset=True)
     if "bot_token" in data:
-        obj.bot_token_encrypted = data.pop("bot_token")
+        new_token = data.pop("bot_token")
+        # Empty string on edit means "keep existing token" per the frontend
+        # contract; only overwrite when a real value is supplied.
+        if new_token:
+            obj.bot_token_encrypted = secrets.encrypt(new_token)
 
     if data.get("is_default") is True:
         await _clear_other_defaults(db, current.organization_id, except_id=obj.id)

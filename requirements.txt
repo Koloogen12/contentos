@@ -17,9 +17,10 @@ psycopg[binary]==3.2.3
 alembic==1.14.0
 pgvector==0.3.6
 
-# Auth
+# Auth + crypto
 passlib[bcrypt]==1.7.4
 pyjwt==2.10.1
+cryptography==43.0.1
 
 # Queue
 arq==0.26.3

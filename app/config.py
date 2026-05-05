@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     JWT_ACCESS_TTL_MINUTES: int = 60
     JWT_REFRESH_TTL_DAYS: int = 30
 
+    # Symmetric encryption for stored secrets (e.g. per-org Telegram bot tokens).
+    # Optional — when empty we derive a key from JWT_SECRET (NOT for prod).
+    SECRETS_ENCRYPTION_KEY: str = ""
+
     # AI
     COMETAPI_KEY: str = ""
     COMETAPI_BASE_URL: str = "https://api.cometapi.com/v1"
