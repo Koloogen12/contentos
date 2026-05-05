@@ -1,0 +1,47 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Local data
+/tmp/
+*.sqlite
+*.db
+postgres-data/
+redis-data/
+audio-cache/
+
+# Logs
+*.log
+logs/
+
+# Alembic — keep versions/, ignore generated artifacts elsewhere
+!alembic/versions/

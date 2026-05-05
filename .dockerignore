@@ -1,0 +1,35 @@
+# Secrets — must NEVER end up inside the image
+.env
+.env.local
+.env.*.local
+
+# VCS
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+venv
+env
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# IDE
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Local artifacts
+postgres-data
+redis-data
+audio-cache
+*.log

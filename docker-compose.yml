@@ -1,0 +1,77 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: contentos
+      POSTGRES_USER: contentos
+      POSTGRES_PASSWORD: contentos
+    ports:
+      # 5432 is often busy on hosts (brew postgres). Map to 5433 outside,
+      # api/worker still reach db on 5432 via docker network.
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contentos -d contentos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # NOT publishing redis port to host — api/worker reach it via docker network as `redis`.
+    # If you need host access, uncomment and pick a free port like 6380:6379.
+    # ports:
+    #   - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://contentos:contentos@db:5432/contentos
+      DATABASE_SYNC_URL: postgresql+psycopg://contentos:contentos@db:5432/contentos
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+      - audio-cache:/tmp/contentos
+    # Run alembic on every start (idempotent), then uvicorn with reload for dev.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://contentos:contentos@db:5432/contentos
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - audio-cache:/tmp/contentos
+    command: ["arq", "app.workers.queue.WorkerSettings"]
+
+volumes:
+  postgres-data:
+  redis-data:
+  audio-cache:
