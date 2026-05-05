@@ -36,6 +36,20 @@ def _format_brand(data: dict[str, Any]) -> str:
         parts.append(f"\nАКТИВНЫЕ ПРОДУКТЫ: {products}")
     if voice := data.get("voice_rules"):
         parts.append(f"\nГОЛОС И СТИЛЬ:\n{voice}")
+    if traits := data.get("voice_traits"):
+        if isinstance(traits, list):
+            traits = "\n".join(f"- {t}" for t in traits)
+        parts.append(f"\nХАРАКТЕРНЫЕ ЧЕРТЫ ГОЛОСА:\n{traits}")
+    if avoid := data.get("voice_avoid"):
+        if isinstance(avoid, list):
+            avoid = "\n".join(f"- {t}" for t in avoid)
+        parts.append(f"\nЧЕГО АВТОР ИЗБЕГАЕТ:\n{avoid}")
+    if phrases := data.get("recurring_phrases"):
+        if isinstance(phrases, list):
+            phrases = ", ".join(phrases)
+        parts.append(f"\nХАРАКТЕРНЫЕ СЛОВА И ФРАЗЫ: {phrases}")
+    if tone := data.get("tone_calibration"):
+        parts.append(f"\nТОН: {tone}")
     if taboo := data.get("taboo_list"):
         parts.append(f"\nТАБУ (никогда не писать):\n{taboo}")
     if manifesto := data.get("manifesto"):
@@ -79,8 +93,13 @@ async def build_skill_context(
     organization_id: uuid.UUID,
     canvas_id: uuid.UUID | None = None,
     node_id: uuid.UUID | None = None,
+    voice_query: str | None = None,
 ) -> str:
-    """Assembles the system prompt for a skill run."""
+    """Assembles the system prompt for a skill run.
+
+    If ``voice_query`` is provided, top-K similar voice_samples are
+    appended as few-shot examples (used by format skills).
+    """
     layers: list[str] = []
 
     brand = await db.scalar(
@@ -106,6 +125,15 @@ async def build_skill_context(
         )
         items = list((await db.scalars(stmt)).all())
         if formatted := _format_knowledge(items):
+            layers.append(formatted)
+
+    if voice_query:
+        from app.services import voice_retrieval
+
+        samples = await voice_retrieval.find_similar(
+            db, organization_id=organization_id, query_text=voice_query, k=3
+        )
+        if formatted := voice_retrieval.format_few_shot(samples):
             layers.append(formatted)
 
     return "\n\n".join(layers).strip()

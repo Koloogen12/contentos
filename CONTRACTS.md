@@ -331,6 +331,20 @@ GET    /api/v1/nodes/{id}/knowledge              → KnowledgeItemOut[]
 
 ---
 
+## 7.1 Voice training
+
+```http
+GET    /api/v1/voice-samples                      → VoiceSampleOut[]
+POST   /api/v1/voice-samples                      → VoiceSampleOut          (single post + auto-embed)
+POST   /api/v1/voice-samples/bulk                 → { created, skipped, items }
+DELETE /api/v1/voice-samples/{id}                 → 204
+POST   /api/v1/voice-samples/extract-traits       → VoiceTraitsExtracted    (writes voice_traits/voice_avoid/recurring_phrases/tone_calibration into BrandContext.data)
+```
+
+Few-shot retrieval работает автоматически: при запуске `telegram_creator` / `linkedin_creator` сервер вытаскивает top-3 voice_samples похожих на текущий тезис (cosine over pgvector) и инжектит как примеры в системный промпт.
+
+---
+
 ## 8. Publishing (Telegram)
 
 ```http

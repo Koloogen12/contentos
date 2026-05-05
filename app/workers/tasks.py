@@ -68,11 +68,16 @@ async def run_skill(ctx: dict, skill_run_id_str: str) -> dict[str, Any]:
                     raise ValueError(skill_input["error"])
                 skill_run.input_snapshot = skill_input
 
+            voice_query = None
+            if skill_run.skill in ("telegram_creator", "linkedin_creator"):
+                voice_query = skill_input.get("talking_point")
+
             system_context = await build_skill_context(
                 db,
                 organization_id=organization_id,
                 canvas_id=canvas_id,
                 node_id=node.id,
+                voice_query=voice_query,
             )
 
             skill_fn = get_skill(skill_run.skill)

@@ -12,6 +12,7 @@ from app.api.v1 import (
     skill_runs,
     telegram_targets,
     transcription,
+    voice,
 )
 
 api_router = APIRouter(prefix="/api/v1")
@@ -26,3 +27,4 @@ api_router.include_router(knowledge.router)
 api_router.include_router(transcription.router)
 api_router.include_router(telegram_targets.router)
 api_router.include_router(publish.router)
+api_router.include_router(voice.router)
