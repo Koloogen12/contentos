@@ -11,6 +11,7 @@ from app.models.knowledge import (
 )
 from app.models.publish import PublishLog, PublishStatus, TelegramTarget
 from app.models.share import CanvasShareToken
+from app.models.version import CanvasVersion
 
 __all__ = [
     "Base",
@@ -34,4 +35,5 @@ __all__ = [
     "PublishStatus",
     "TelegramTarget",
     "CanvasShareToken",
+    "CanvasVersion",
 ]

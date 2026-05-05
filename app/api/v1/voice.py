@@ -1,5 +1,4 @@
 """Voice samples: store the user's own posts for few-shot retrieval at format time."""
-from __future__ import annotations
 
 import json
 import logging

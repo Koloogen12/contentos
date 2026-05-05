@@ -7,6 +7,7 @@ from app.services.skills import (  # noqa: F401
     telegram_creator,
     transcribe_audio,
     transcribe_youtube,
+    tweak,
     viral_talking_points,
 )
 from app.services.skills.base import get, list_registered, register, skill_for_node

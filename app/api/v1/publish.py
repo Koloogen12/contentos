@@ -1,5 +1,4 @@
 """Publish a format node's full_text to a Telegram target."""
-from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone

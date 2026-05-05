@@ -19,6 +19,9 @@ pgvector==0.3.6
 
 # Auth + crypto
 passlib[bcrypt]==1.7.4
+# bcrypt 4.1+ broke passlib 1.7.4 (detect_wrap_bug uses a 73-byte test
+# secret which the new C impl rejects). Pin until passlib 1.8 lands.
+bcrypt==4.0.1
 pyjwt==2.10.1
 cryptography==43.0.1
 

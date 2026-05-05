@@ -1,6 +1,4 @@
 """Canvas sharing: create read-only public links + clone-from-share into your own org."""
-from __future__ import annotations
-
 import secrets
 import uuid
 from datetime import datetime, timezone

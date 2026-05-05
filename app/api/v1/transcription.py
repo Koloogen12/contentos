@@ -1,5 +1,4 @@
 """Transcription endpoints for source nodes: YouTube + audio upload."""
-from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone

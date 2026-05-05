@@ -71,6 +71,8 @@ async def run_skill(ctx: dict, skill_run_id_str: str) -> dict[str, Any]:
             voice_query = None
             if skill_run.skill in ("telegram_creator", "linkedin_creator"):
                 voice_query = skill_input.get("talking_point")
+            elif skill_run.skill == "tweak" and node.type == "format":
+                voice_query = (node.data or {}).get("talking_point_text") or skill_input.get("talking_point")
 
             system_context = await build_skill_context(
                 db,

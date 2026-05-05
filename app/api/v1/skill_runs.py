@@ -1,5 +1,4 @@
 """Skill execution endpoints: start a run, poll, or stream events via SSE."""
-from __future__ import annotations
 
 import asyncio
 import json
@@ -24,6 +23,10 @@ router = APIRouter(tags=["skill-runs"])
 class BulkRunStarted(BaseModel):
     skill_runs: list[SkillRunStarted]
     skipped: int
+
+
+class TweakRequest(BaseModel):
+    mode: str
 
 
 async def _get_owned_node(db, node_id: uuid.UUID, org_id: uuid.UUID) -> Node:
@@ -80,6 +83,69 @@ async def run_node(
     await pool.enqueue_job("run_skill", str(skill_run.id))
 
     return SkillRunStarted(skill_run_id=skill_run.id, skill=skill_name, status="pending")
+
+
+_EXTRACT_TWEAKS = {"amplify", "rephrase", "reextract"}
+_FORMAT_TWEAKS = {"regenerate", "rehook", "shorten", "amplify_voice", "platform_optimize"}
+
+
+@router.post(
+    "/nodes/{node_id}/tweak",
+    response_model=SkillRunStarted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def tweak_node(
+    node_id: uuid.UUID,
+    payload: TweakRequest,
+    current: CurrentUser,
+    db: DbSession,
+) -> SkillRunStarted:
+    """Re-run an existing node with a transformation mode (Усилить/Сократить/etc)."""
+    node = await _get_owned_node(db, node_id, current.organization_id)
+    mode = payload.mode.strip()
+
+    if node.type == "extract":
+        if mode not in _EXTRACT_TWEAKS:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Mode '{mode}' не поддерживается для extract. Доступно: {sorted(_EXTRACT_TWEAKS)}",
+            )
+        snapshot: dict = {"mode": mode}
+        if mode == "reextract":
+            # Pull source content from the upstream source node.
+            incoming = await db.scalar(
+                select(Edge).where(Edge.target_node_id == node.id)
+            )
+            if incoming is not None:
+                parent = await db.scalar(select(Node).where(Node.id == incoming.source_node_id))
+                if parent is not None:
+                    snapshot["source_content"] = (parent.data or {}).get("content", "")
+    elif node.type == "format":
+        if mode not in _FORMAT_TWEAKS:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Mode '{mode}' не поддерживается для format. Доступно: {sorted(_FORMAT_TWEAKS)}",
+            )
+        snapshot = {"mode": mode}
+    else:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Tweak доступен только для extract и format нод"
+        )
+
+    skill_run = SkillRun(
+        node_id=node.id,
+        skill="tweak",
+        status="pending",
+        created_at=datetime.now(timezone.utc),
+        input_snapshot=snapshot,
+    )
+    db.add(skill_run)
+    await db.flush()
+
+    pool = await get_arq_pool()
+    await pool.enqueue_job("run_skill", str(skill_run.id))
+
+    return SkillRunStarted(skill_run_id=skill_run.id, skill="tweak", status="pending")
 
 
 @router.post(

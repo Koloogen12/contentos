@@ -41,7 +41,7 @@ def get(name: str) -> SkillFn:
     return fn
 
 
-_FORMAT_PLATFORM_TO_SKILL = {
+FORMAT_PLATFORM_TO_SKILL = {
     "telegram": "telegram_creator",
     "linkedin": "linkedin_creator",
     "carousel": "carousel_creator",
@@ -56,7 +56,7 @@ def skill_for_node(node: Node) -> str:
         return "viral_talking_points"
     if node.type == "format":
         platform = (node.data or {}).get("platform", "telegram")
-        skill = _FORMAT_PLATFORM_TO_SKILL.get(platform)
+        skill = FORMAT_PLATFORM_TO_SKILL.get(platform)
         if not skill:
             raise ValueError(f"Платформа {platform} пока не поддерживается")
         return skill
