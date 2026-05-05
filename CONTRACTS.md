@@ -275,9 +275,10 @@ status: `pending | running | completed | failed`
 
 ### Real-time (SSE) — рекомендуется вместо polling
 ```http
-GET /api/v1/skill-runs/{skill_run_id}/stream
+GET /api/v1/skill-runs/{skill_run_id}/stream?token=<access_token>
 Accept: text/event-stream
 ```
+SSE endpoint принимает access token либо через `Authorization: Bearer ...` (для серверных клиентов), либо через query-param `?token=...` (для браузерных EventSource, который не умеет ставить кастомные заголовки). Используй query — `Authorization`-заголовок здесь не пройдёт через `EventSource`.
 События:
 - `event: status\ndata: {"status": "running"}\n\n`
 - `event: progress\ndata: {"step": "transcribing", "percent": 45}\n\n`

@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 from sse_starlette.sse import EventSourceResponse
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, CurrentUserSse, DbSession
 from app.models.canvas import Canvas, Node, SkillRun
 from app.schemas.skill_run import SkillRunOut, SkillRunStarted
 from app.services import events
@@ -89,7 +89,7 @@ async def get_skill_run(
 @router.get("/skill-runs/{skill_run_id}/stream")
 async def stream_skill_run(
     skill_run_id: uuid.UUID,
-    current: CurrentUser,
+    current: CurrentUserSse,
     db: DbSession,
     request: Request,
 ):
