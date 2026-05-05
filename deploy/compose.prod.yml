@@ -1,0 +1,121 @@
+# Production stack — runs on the Selectel VPS.
+# Layout on the server:
+#   /opt/contentos/backend/   (clone of github.com/Koloogen12/contentos)
+#   /opt/contentos/frontend/  (clone of github.com/Koloogen12/contentos-front)
+#   /opt/contentos/caddy/Caddyfile
+#   /opt/contentos/compose.prod.yml  (this file, copied here by deploy.sh)
+#   /opt/contentos/.env              (secrets, never committed)
+#
+# Reverse-proxy contract:
+#   ${DOMAIN}            → frontend (Next.js)
+#   api.${DOMAIN}        → backend  (FastAPI)
+# When DOMAIN is "_" (default), Caddy serves with a self-signed cert and
+# answers any host. Useful for bootstrap before a real domain is wired.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-contentos}
+      POSTGRES_USER: ${POSTGRES_USER:-contentos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-contentos} -d ${POSTGRES_DB:-contentos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-contentos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-contentos}
+      DATABASE_SYNC_URL: postgresql+psycopg://${POSTGRES_USER:-contentos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-contentos}
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: production
+      APP_DEBUG: "false"
+      CORS_ORIGINS: ${PUBLIC_URL_FRONT}
+    volumes:
+      - media-cache:/tmp/contentos
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-contentos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-contentos}
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: production
+      APP_DEBUG: "false"
+    volumes:
+      - media-cache:/tmp/contentos
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["arq", "app.workers.queue.WorkerSettings"]
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_URL_API}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_URL_API}
+      PORT: "3000"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-_}
+      ACME_EMAIL: ${ACME_EMAIL:-internal}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  media-cache:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,52 @@
+# Two virtual hosts:
+#   {$DOMAIN}     → Next.js on frontend:3000
+#   api.{$DOMAIN} → FastAPI on api:8000
+#
+# When DOMAIN is "_" Caddy auto-generates a self-signed cert (tls internal)
+# and answers on any hostname. When DOMAIN is a real domain, Let's Encrypt
+# kicks in automatically — make sure both A records (apex + api.) point to
+# this VPS.
+
+{
+    email {$ACME_EMAIL}
+    # When DOMAIN=_ the global "auto_https off" toggle below stops Caddy
+    # from trying to fetch LE for a placeholder. Otherwise it stays on.
+}
+
+# --- Site config ---
+
+{$DOMAIN} {
+    encode zstd gzip
+    reverse_proxy frontend:3000
+
+    # Self-signed for bootstrap when no real domain is set yet.
+    @bootstrap host _
+    tls internal
+}
+
+api.{$DOMAIN} {
+    encode zstd gzip
+
+    # Generous body size for audio uploads.
+    request_body {
+        max_size 600MB
+    }
+
+    # SSE streams need long timeouts and no buffering.
+    @sse path */stream
+    handle @sse {
+        reverse_proxy api:8000 {
+            flush_interval -1
+            transport http {
+                read_timeout 1h
+            }
+        }
+    }
+
+    handle {
+        reverse_proxy api:8000
+    }
+
+    @bootstrap host api._
+    tls internal
+}
