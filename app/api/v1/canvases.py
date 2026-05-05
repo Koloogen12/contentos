@@ -207,3 +207,68 @@ def _clean_template_data(node_type: str, data: dict) -> dict:
     """Strip runtime fields from a template node before cloning."""
     keep = _TEMPLATE_KEEP_FIELDS.get(node_type, set())
     return {k: v for k, v in data.items() if k in keep}
+
+
+@router.post(
+    "/{canvas_id}/duplicate",
+    response_model=CanvasDetail,
+    status_code=status.HTTP_201_CREATED,
+)
+async def duplicate_canvas(
+    canvas_id: uuid.UUID,
+    current: CurrentUser,
+    db: DbSession,
+) -> CanvasDetail:
+    """Clone an existing user canvas (NOT a template).
+
+    Unlike from-template, runtime data is preserved verbatim — the user
+    is duplicating a working pipeline, not starting fresh. The clone
+    starts as a non-template owned by the same project (if any).
+    """
+    src = await db.scalar(
+        select(Canvas)
+        .where(Canvas.id == canvas_id, Canvas.organization_id == current.organization_id)
+        .options(selectinload(Canvas.nodes), selectinload(Canvas.edges))
+    )
+    if src is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Canvas not found")
+
+    canvas = Canvas(
+        organization_id=current.organization_id,
+        project_id=src.project_id,
+        name=f"{src.name} (копия)",
+        description=src.description,
+        is_template=False,
+    )
+    db.add(canvas)
+    await db.flush()
+
+    node_id_map: dict[uuid.UUID, uuid.UUID] = {}
+    for n in src.nodes:
+        copied = Node(
+            canvas_id=canvas.id,
+            type=n.type,
+            position_x=n.position_x,
+            position_y=n.position_y,
+            data=dict(n.data or {}),
+            status="idle",
+        )
+        db.add(copied)
+        await db.flush()
+        node_id_map[n.id] = copied.id
+
+    for e in src.edges:
+        if (s := node_id_map.get(e.source_node_id)) and (t := node_id_map.get(e.target_node_id)):
+            db.add(Edge(canvas_id=canvas.id, source_node_id=s, target_node_id=t))
+    await db.flush()
+
+    canvas = await db.scalar(
+        select(Canvas)
+        .where(Canvas.id == canvas.id)
+        .options(selectinload(Canvas.nodes), selectinload(Canvas.edges))
+    )
+    return CanvasDetail(
+        **CanvasOut.model_validate(canvas).model_dump(),
+        nodes=[NodeOut.model_validate(n) for n in canvas.nodes],
+        edges=[EdgeOut.model_validate(e) for e in canvas.edges],
+    )

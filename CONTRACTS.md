@@ -130,6 +130,20 @@ POST /api/v1/canvases/from-template/{template_id}
 { "name": "Неделя 21", "project_id": null }
 → 201 CanvasDetail
 ```
+
+### Дублировать существующий канвас
+```http
+POST /api/v1/canvases/{canvas_id}/duplicate
+→ 201 CanvasDetail
+```
+Клонирует пользовательский канвас (включая runtime-данные нод). Имя получает суффикс «(копия)». Шаблоны через этот endpoint не клонируются — для них `from-template`.
+
+### Bulk-run всех runnable нод канваса
+```http
+POST /api/v1/canvases/{canvas_id}/run-all
+→ 202 { "skill_runs": SkillRunStarted[], "skipped": number }
+```
+Кладёт в очередь по skill-run на каждую `extract` и `format` ноду, у которой есть валидный upstream input. Format-ноды кладутся вторым «волной»; они подхватят свежий output extract'а через `collect_input_for_skill` после того как первый закончится — но идентичный порядок не гарантируется, для детерминированных цепочек используй per-node Run.
 Ноды копируются с новыми UUID, runtime-поля (`status`, скилл-результаты) сбрасываются. Шаблоны привязаны к организации; кросс-org клонирование пока не поддерживается.
 
 ### Список шаблонов

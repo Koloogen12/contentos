@@ -7,17 +7,23 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sse_starlette.sse import EventSourceResponse
 
 from app.api.deps import CurrentUser, CurrentUserSse, DbSession
-from app.models.canvas import Canvas, Node, SkillRun
+from app.models.canvas import Canvas, Edge, Node, SkillRun
 from app.schemas.skill_run import SkillRunOut, SkillRunStarted
 from app.services import events
 from app.services.skills import skill_for_node
 from app.workers.queue import get_arq_pool
 
 router = APIRouter(tags=["skill-runs"])
+
+
+class BulkRunStarted(BaseModel):
+    skill_runs: list[SkillRunStarted]
+    skipped: int
 
 
 async def _get_owned_node(db, node_id: uuid.UUID, org_id: uuid.UUID) -> Node:
@@ -74,6 +80,103 @@ async def run_node(
     await pool.enqueue_job("run_skill", str(skill_run.id))
 
     return SkillRunStarted(skill_run_id=skill_run.id, skill=skill_name, status="pending")
+
+
+@router.post(
+    "/canvases/{canvas_id}/run-all",
+    response_model=BulkRunStarted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def run_canvas(
+    canvas_id: uuid.UUID,
+    current: CurrentUser,
+    db: DbSession,
+) -> BulkRunStarted:
+    """Enqueue runs for every node in the canvas that has incoming input.
+
+    Order:
+        1. extract nodes whose source has content
+        2. format nodes whose extract has talking_points + selected_index,
+           OR whose source has content (when wired source→format directly)
+
+    The worker processes them via the queue; format nodes will pick up
+    fresh extract output via collect_input_for_skill once their parent
+    finishes (we DO NOT wait — the second wave will see partial state if
+    they read upstream too eagerly). For deterministic chains use the
+    UI's per-node Run button or wait for an extract to finish before
+    triggering a format. Bulk-run is best for "refresh everything".
+    """
+    canvas = await db.scalar(
+        select(Canvas).where(
+            Canvas.id == canvas_id, Canvas.organization_id == current.organization_id
+        )
+    )
+    if canvas is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Canvas not found")
+
+    nodes = list(
+        (await db.scalars(select(Node).where(Node.canvas_id == canvas_id))).all()
+    )
+    edges = list(
+        (await db.scalars(select(Edge).where(Edge.canvas_id == canvas_id))).all()
+    )
+
+    parent_of: dict[uuid.UUID, Node] = {}
+    by_id = {n.id: n for n in nodes}
+    for e in edges:
+        if e.target_node_id in by_id and e.source_node_id in by_id:
+            parent_of[e.target_node_id] = by_id[e.source_node_id]
+
+    pool = await get_arq_pool()
+    started: list[SkillRunStarted] = []
+    skipped = 0
+
+    # Two waves: extract first, then format. Same canvas → safe ordering.
+    waves = [
+        [n for n in nodes if n.type == "extract"],
+        [n for n in nodes if n.type == "format"],
+    ]
+    for wave in waves:
+        for n in wave:
+            parent = parent_of.get(n.id)
+            if parent is None:
+                skipped += 1
+                continue
+            parent_data = parent.data or {}
+            if n.type == "extract" and not (parent_data.get("content") or "").strip():
+                skipped += 1
+                continue
+            if n.type == "format":
+                if parent.type == "extract":
+                    tps = parent_data.get("talking_points") or []
+                    if not tps or parent_data.get("selected_index") is None:
+                        skipped += 1
+                        continue
+                elif parent.type == "source":
+                    if not (parent_data.get("content") or "").strip():
+                        skipped += 1
+                        continue
+
+            try:
+                skill_name = skill_for_node(n)
+            except ValueError:
+                skipped += 1
+                continue
+
+            sr = SkillRun(
+                node_id=n.id,
+                skill=skill_name,
+                status="pending",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(sr)
+            await db.flush()
+            await pool.enqueue_job("run_skill", str(sr.id))
+            started.append(
+                SkillRunStarted(skill_run_id=sr.id, skill=skill_name, status="pending")
+            )
+
+    return BulkRunStarted(skill_runs=started, skipped=skipped)
 
 
 @router.get("/skill-runs/{skill_run_id}", response_model=SkillRunOut)

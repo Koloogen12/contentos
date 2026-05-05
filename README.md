@@ -56,12 +56,32 @@ scripts/                 import_knowledge.py, etc.
 - `../content-os/PRD.md` — product spec
 - `../content-os/CLAUDE.md` — original backend brief
 
+## Skills available
+
+| Skill | Trigger | Output |
+|---|---|---|
+| `viral_talking_points` | extract node `Run` | 5–10 ranked talking points (4-axis viral score) |
+| `telegram_creator` | format node, `platform=telegram` | hooks (3) + body + CTA + full_text |
+| `linkedin_creator` | format node, `platform=linkedin` | hooks (3) + body + CTA + full_text |
+| `carousel_creator` | format node, `platform=carousel` | 5–10 slides + summary + CTA |
+| `reels_creator` | format node, `platform=reels` | 3 hooks + 4–6 beats + CTA + caption |
+| `transcribe_youtube` | source node, YouTube URL | captions or whisper transcript + metadata |
+| `transcribe_audio` | source node, audio upload | whisper transcript (auto-chunked >25 MB) |
+
+Format skills inject the user's voice automatically: top-3 similar `voice_samples` retrieved by cosine similarity over pgvector are added as few-shot examples in the system prompt.
+
 ## Roadmap
 
 | Iteration | Scope | Status |
 |---|---|---|
-| 1 | Foundation: scaffold, auth, multi-tenant CRUD, migrations | ✅ done |
-| 2 | CometAPI client, skills (`viral_talking_points`, `*_creator`), SSE | in progress |
-| 3 | YouTube + Whisper transcription, knowledge import, voice embeddings | planned |
-| 4 | Telegram publishing (dry-run → approve → channel) | planned |
-| 5 | Selectel deploy + Postgres/Redis/S3 managed | planned |
+| 1 | Foundation: scaffold, auth, multi-tenant CRUD, migrations | ✅ |
+| 2 | CometAPI client, skills (extract, telegram/linkedin), SSE auth via `?token=` | ✅ |
+| 3A | YouTube + audio transcription, Telegram publishing | ✅ |
+| 3B | Voice training (samples, embeddings, extract-traits, few-shot retrieval) | ✅ |
+| 3C | `import_knowledge.py` script for bulk-loading existing markdown bases | ✅ |
+| D | Starter templates (auto-seeded on signup), `from-template`, carousel/reels skills | ✅ |
+| D+ | Canvas duplicate, bulk run-all | ✅ |
+| E | Onboarding wizard (frontend) | planned |
+| F | Project picker across canvas/knowledge/voice (frontend) | planned |
+| G | Selectel deploy: managed Postgres + Redis + S3, Caddy/Traefik SSL | planned |
+| V2 | Public sharing, marketplace templates, voice fine-tune, Instagram/LinkedIn API publishing | planned |
