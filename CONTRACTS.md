@@ -278,6 +278,22 @@ TalkingPoint = {
   hooks_bank: { text: string, trigger: "paradox" | "number" | "contrast" | "provocation" | "story" | "dissonance" | "question" | "other" }[],
   full_text: string
 }
+
+// article (длинная статья для блога, 1500–2500 слов)
+{
+  platform: "article",
+  talking_point_text: string,
+  title: string,
+  slug: string,                      // URL-slug, авто-транслитерация title
+  hook: string,                      // первая строка
+  intro: string,                     // 1–2 абзаца после хука
+  sections: { heading: string, body: string }[],   // 3–5 секций
+  conclusion: string,
+  cta: string,
+  meta_description: string,          // 140–160 chars для SEO
+  word_count: number,
+  full_text: string                  // итоговый markdown (# title, ## H2, абзацы)
+}
 ```
 
 Сервер выбирает скилл автоматически по `data.platform`:
@@ -286,6 +302,7 @@ TalkingPoint = {
 - `carousel` → `carousel_creator`
 - `reels` → `reels_creator`
 - `hooks` → `hooks_creator`
+- `article` → `article_creator`
 
 ---
 

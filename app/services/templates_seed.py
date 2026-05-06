@@ -45,6 +45,16 @@ async def seed_default_templates(db: AsyncSession, organization_id: uuid.UUID) -
             ],
             "edges": [(0, 1)],
         },
+        {
+            "name": "Идея → Статья",
+            "description": "Тезис → длинная статья для блога (1500–2500 слов).",
+            "nodes": [
+                {"type": "source", "x": 80, "y": 120, "data": {"input_type": "text"}},
+                {"type": "extract", "x": 420, "y": 120, "data": {}},
+                {"type": "format", "x": 760, "y": 120, "data": {"platform": "article"}},
+            ],
+            "edges": [(0, 1), (1, 2)],
+        },
     ]
 
     created = 0

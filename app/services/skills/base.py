@@ -47,6 +47,7 @@ FORMAT_PLATFORM_TO_SKILL = {
     "carousel": "carousel_creator",
     "reels": "reels_creator",
     "hooks": "hooks_creator",
+    "article": "article_creator",
 }
 
 
