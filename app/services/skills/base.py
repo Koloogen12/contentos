@@ -48,6 +48,8 @@ FORMAT_PLATFORM_TO_SKILL = {
     "reels": "reels_creator",
     "hooks": "hooks_creator",
     "article": "article_creator",
+    "twitter": "twitter_creator",
+    "instagram": "instagram_creator",
 }
 
 

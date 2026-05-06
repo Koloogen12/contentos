@@ -233,6 +233,7 @@ async def stats(current: CurrentUser, db: DbSession) -> StatsResponse:
     raw = await build_stats(db, organization_id=current.organization_id)
     return StatsResponse(
         publishing_streak=raw["publishing_streak"],
+        publishing_streak_record=raw["publishing_streak_record"],
         total_published=raw["total_published"],
         this_week_published=raw["this_week_published"],
         this_month_published=raw["this_month_published"],

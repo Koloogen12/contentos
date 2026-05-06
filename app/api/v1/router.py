@@ -10,6 +10,7 @@ from app.api.v1 import (
     nodes,
     projects,
     publish,
+    search,
     share,
     skill_runs,
     telegram_targets,
@@ -35,3 +36,4 @@ api_router.include_router(share.router)
 api_router.include_router(versions.router)
 api_router.include_router(content_plan.router)
 api_router.include_router(content_plan.schedule_router)
+api_router.include_router(search.router)

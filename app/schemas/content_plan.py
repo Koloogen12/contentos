@@ -133,6 +133,7 @@ class TopPostOut(BaseModel):
 
 class StatsResponse(BaseModel):
     publishing_streak: int
+    publishing_streak_record: int
     total_published: int
     this_week_published: int
     this_month_published: int

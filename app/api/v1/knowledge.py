@@ -134,6 +134,61 @@ async def delete_knowledge(item_id: uuid.UUID, current: CurrentUser, db: DbSessi
     await db.delete(obj)
 
 
+# ----- Bulk operations -----
+
+
+from pydantic import BaseModel
+
+
+class BulkDeleteRequest(BaseModel):
+    ids: list[uuid.UUID]
+
+
+class BulkUpdateProjectRequest(BaseModel):
+    ids: list[uuid.UUID]
+    project_id: uuid.UUID | None = None
+
+
+class BulkResult(BaseModel):
+    affected: int
+
+
+@router.post("/knowledge/bulk-delete", response_model=BulkResult)
+async def bulk_delete(
+    payload: BulkDeleteRequest, current: CurrentUser, db: DbSession
+) -> BulkResult:
+    if not payload.ids:
+        return BulkResult(affected=0)
+    rows = await db.scalars(
+        select(KnowledgeItem).where(
+            KnowledgeItem.id.in_(payload.ids),
+            KnowledgeItem.organization_id == current.organization_id,
+        )
+    )
+    items = list(rows.all())
+    for it in items:
+        await db.delete(it)
+    return BulkResult(affected=len(items))
+
+
+@router.post("/knowledge/bulk-update-project", response_model=BulkResult)
+async def bulk_update_project(
+    payload: BulkUpdateProjectRequest, current: CurrentUser, db: DbSession
+) -> BulkResult:
+    if not payload.ids:
+        return BulkResult(affected=0)
+    rows = await db.scalars(
+        select(KnowledgeItem).where(
+            KnowledgeItem.id.in_(payload.ids),
+            KnowledgeItem.organization_id == current.organization_id,
+        )
+    )
+    items = list(rows.all())
+    for it in items:
+        it.project_id = payload.project_id
+    return BulkResult(affected=len(items))
+
+
 # Node ↔ Knowledge attachment
 
 

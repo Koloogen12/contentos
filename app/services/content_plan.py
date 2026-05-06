@@ -113,8 +113,13 @@ async def build_week_summary(
 
 async def compute_streak(
     db: AsyncSession, *, organization_id: uuid.UUID
-) -> int:
-    """Consecutive days (ending today) with at least one published post."""
+) -> tuple[int, int]:
+    """Returns (current_streak, max_streak).
+
+    current_streak: consecutive days ending today (or yesterday if nothing
+        published today yet) with at least one published post.
+    max_streak: longest run anywhere in the org's history.
+    """
     today = datetime.now(timezone.utc).date()
     rows = await db.execute(
         select(func.date(PlannedPost.published_at))
@@ -126,15 +131,30 @@ async def compute_streak(
     )
     days_with_publish = {r[0] for r in rows.all() if r[0] is not None}
 
-    streak = 0
+    if not days_with_publish:
+        return 0, 0
+
+    # Current streak (ending today/yesterday)
+    current = 0
     cursor = today
-    # If today has nothing yet, the streak still counts back from yesterday.
     if cursor not in days_with_publish:
         cursor -= timedelta(days=1)
     while cursor in days_with_publish:
-        streak += 1
+        current += 1
         cursor -= timedelta(days=1)
-    return streak
+
+    # Max streak — sweep over sorted unique days, count run lengths.
+    sorted_days = sorted(days_with_publish)
+    max_run = 1
+    run = 1
+    for i in range(1, len(sorted_days)):
+        if (sorted_days[i] - sorted_days[i - 1]).days == 1:
+            run += 1
+            if run > max_run:
+                max_run = run
+        else:
+            run = 1
+    return current, max_run
 
 
 async def build_stats(
@@ -183,7 +203,9 @@ async def build_stats(
         k: round(v * 100 / plat_total) for k, v in platform_counts.items()
     }
 
-    streak = await compute_streak(db, organization_id=organization_id)
+    streak, streak_record = await compute_streak(
+        db, organization_id=organization_id
+    )
 
     # Top posts by metrics.saves (then views as fallback)
     def metric_score(p: PlannedPost) -> int:
@@ -208,6 +230,7 @@ async def build_stats(
 
     return {
         "publishing_streak": streak,
+        "publishing_streak_record": streak_record,
         "total_published": total,
         "this_week_published": this_week,
         "this_month_published": this_month,

@@ -40,12 +40,19 @@ class Item:
     tags: list[str]
     viral_score: int | None
     source_file: str
+    pillar: str | None = None  # R1 / R2 / R3 / R4 if found in source
 
 
 _TEZIS_HEADER = re.compile(r"^###\s+(B-\d+)\.\s+(.+?)\s*$")
 _PP_HEADER = re.compile(r"^###\s+Priority Pick #(\d+)\s+—?\s+Viral Score:\s*(\d+)/20\s*$")
 _PP_THESIS = re.compile(r"^\*\*Тезис:?\*\*\s*(.+)$", re.M)
 _PP_HOOK = re.compile(r"^\*\*Готовый хук:?\*\*\s*[«\"]?(.+?)[»\"]?\s*$", re.M)
+_PILLAR_RE = re.compile(r"(?:Столб|Пиллар|Pillar)[:\s]+(R[1-4])", re.I)
+
+
+def _extract_pillar(block: str) -> str | None:
+    m = _PILLAR_RE.search(block)
+    return m.group(1).upper() if m else None
 
 
 def _strip_status(title: str) -> tuple[str, str | None]:
@@ -86,6 +93,7 @@ def parse_tezis_bank(text: str, source_file: str) -> list[Item]:
                 tags=tags,
                 viral_score=None,
                 source_file=source_file,
+                pillar=_extract_pillar(body),
             )
         )
     return items
@@ -125,6 +133,7 @@ def parse_priority_picks(text: str, source_file: str) -> list[Item]:
                 tags=["priority-pick"],
                 viral_score=score if score is not None and 0 <= score <= 20 else None,
                 source_file=source_file,
+                pillar=_extract_pillar(raw),
             )
         )
     return items
@@ -270,6 +279,7 @@ def post_item(client: httpx.Client, base_url: str, token: str, item: Item) -> in
             "body": item.body,
             "tags": item.tags,
             "viral_score": item.viral_score,
+            "pillar": item.pillar,
             "source_file": item.source_file,
         },
         headers={"Authorization": f"Bearer {token}"},
