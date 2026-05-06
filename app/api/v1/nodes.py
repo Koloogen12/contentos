@@ -54,6 +54,8 @@ async def update_node(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(node, field, value)
     await db.flush()
+    # onupdate=func.now() expires updated_at — refresh before serializing.
+    await db.refresh(node)
     return node_to_out(node)
 
 
