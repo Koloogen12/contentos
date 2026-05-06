@@ -10,6 +10,7 @@ from app.models.knowledge import (
     VoiceSample,
 )
 from app.models.publish import PublishLog, PublishStatus, TelegramTarget
+from app.models.content_plan import PlannedPost
 from app.models.share import CanvasShareToken
 from app.models.version import CanvasVersion
 
@@ -36,4 +37,5 @@ __all__ = [
     "TelegramTarget",
     "CanvasShareToken",
     "CanvasVersion",
+    "PlannedPost",
 ]

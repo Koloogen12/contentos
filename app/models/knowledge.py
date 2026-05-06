@@ -30,6 +30,7 @@ class KnowledgeItemType(str, enum.Enum):
     AUDIENCE = "audience"
     VOICE_RULE = "voice_rule"
     CONTENT_THEME = "content_theme"
+    MANIFESTO = "manifesto"
 
 
 class Project(Base, TimestampMixin):
@@ -73,8 +74,12 @@ class KnowledgeItem(Base, TimestampMixin):
     __tablename__ = "knowledge_items"
     __table_args__ = (
         CheckConstraint(
-            "type IN ('tezis', 'reference', 'audience', 'voice_rule', 'content_theme')",
+            "type IN ('tezis','reference','audience','voice_rule','content_theme','manifesto')",
             name="ck_knowledge_items_type",
+        ),
+        CheckConstraint(
+            "pillar IS NULL OR pillar IN ('R1','R2','R3','R4')",
+            name="ck_knowledge_items_pillar",
         ),
         Index("idx_knowledge_org", "organization_id"),
         Index("idx_knowledge_type", "type"),
@@ -104,6 +109,7 @@ class KnowledgeItem(Base, TimestampMixin):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
     viral_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pillar: Mapped[str | None] = mapped_column(String(10), nullable=True)
     source_file: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_dormant: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_used_at: Mapped["DateTime | None"] = mapped_column(DateTime(timezone=True), nullable=True)

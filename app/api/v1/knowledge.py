@@ -7,12 +7,17 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser, DbSession
 from app.models.canvas import Canvas, Node
 from app.models.knowledge import KnowledgeItem, NodeKnowledge
+from app.schemas.content_plan import (
+    WhatToWriteRecommendation,
+    WhatToWriteResponse,
+)
 from app.schemas.knowledge import (
     KnowledgeItemCreate,
     KnowledgeItemOut,
     KnowledgeItemUpdate,
     KnowledgeTypeT,
 )
+from app.services.content_plan import what_to_write as svc_what_to_write
 
 router = APIRouter(tags=["knowledge"])
 
@@ -35,6 +40,21 @@ async def _owned_node(db, node_id: uuid.UUID, org_id: uuid.UUID) -> Node:
     if node is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Node not found")
     return node
+
+
+@router.get("/knowledge/what-to-write", response_model=WhatToWriteResponse)
+async def what_to_write_today(
+    current: CurrentUser, db: DbSession
+) -> WhatToWriteResponse:
+    raw = await svc_what_to_write(db, organization_id=current.organization_id)
+    return WhatToWriteResponse(
+        date=raw["date"],
+        priority_pillar=raw["priority_pillar"],
+        pillar_reason=raw["pillar_reason"],
+        recommendations=[
+            WhatToWriteRecommendation(**r) for r in raw["recommendations"]
+        ],
+    )
 
 
 @router.get("/knowledge/dormant", response_model=list[KnowledgeItemOut])
@@ -85,6 +105,7 @@ async def create_knowledge(
         body=payload.body,
         tags=payload.tags,
         viral_score=payload.viral_score,
+        pillar=payload.pillar,
         source_file=payload.source_file,
         is_dormant=False,
     )

@@ -4,6 +4,7 @@ from app.api.v1 import (
     auth,
     brand_context,
     canvases,
+    content_plan,
     edges,
     knowledge,
     nodes,
@@ -32,3 +33,5 @@ api_router.include_router(publish.router)
 api_router.include_router(voice.router)
 api_router.include_router(share.router)
 api_router.include_router(versions.router)
+api_router.include_router(content_plan.router)
+api_router.include_router(content_plan.schedule_router)

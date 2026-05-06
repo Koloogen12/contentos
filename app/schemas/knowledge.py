@@ -4,7 +4,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-KnowledgeTypeT = Literal["tezis", "reference", "audience", "voice_rule", "content_theme"]
+KnowledgeTypeT = Literal[
+    "tezis", "reference", "audience", "voice_rule", "content_theme", "manifesto"
+]
+PillarT = Literal["R1", "R2", "R3", "R4"]
 
 
 class ProjectOut(BaseModel):
@@ -57,6 +60,7 @@ class KnowledgeItemOut(BaseModel):
     body: str
     tags: list[str]
     viral_score: int | None
+    pillar: PillarT | None
     source_file: str | None
     is_dormant: bool
     last_used_at: datetime | None
@@ -71,6 +75,7 @@ class KnowledgeItemCreate(BaseModel):
     project_id: uuid.UUID | None = None
     tags: list[str] = Field(default_factory=list)
     viral_score: int | None = Field(default=None, ge=0, le=20)
+    pillar: PillarT | None = None
     source_file: str | None = None
 
 
@@ -80,4 +85,5 @@ class KnowledgeItemUpdate(BaseModel):
     project_id: uuid.UUID | None = None
     tags: list[str] | None = None
     viral_score: int | None = Field(default=None, ge=0, le=20)
+    pillar: PillarT | None = None
     is_dormant: bool | None = None

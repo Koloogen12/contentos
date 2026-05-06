@@ -23,6 +23,14 @@ SYSTEM_TEMPLATE = """\
 
 Итоговый viral_score = сумма (4–20).
 
+ДОПОЛНИТЕЛЬНО для каждого тезиса:
+- pillar — к какому столбу контента ближе (R1/R2/R3/R4):
+  * R1 — Как создавать продукт (JTBD, MVP, AI-инструменты)
+  * R2 — Психология фаундера (страхи, состояние, знать ≠ делать)
+  * R3 — Реалити «Путь к $1M MRR» (THE MONO, NEURIN AI, MakeMeLook)
+  * R4 — Разборы венчурных сделок и рынка
+  Если не подходит ни один — оставь pillar = null.
+
 ОТВЕТ ВЕРНИ СТРОГО как JSON:
 {{
   "talking_points": [
@@ -31,6 +39,7 @@ SYSTEM_TEMPLATE = """\
       "score_breakdown": {{"audience_fit": 0, "engagement_trigger": 0, "uniqueness": 0, "author_fit": 0}},
       "viral_score": 0,
       "category": "мышление | продукты | ремесло | люди | …",
+      "pillar": "R1" /* или R2/R3/R4/null */,
       "reasoning": "одно предложение почему такой скор"
     }}
   ]
@@ -81,6 +90,8 @@ async def run(
                 )
             except (TypeError, ValueError):
                 score = 0
+        pillar_raw = p.get("pillar")
+        pillar = pillar_raw if pillar_raw in ("R1", "R2", "R3", "R4") else None
         cleaned.append(
             {
                 "text": str(p.get("text", "")).strip(),
@@ -92,6 +103,7 @@ async def run(
                 },
                 "viral_score": score,
                 "category": str(p.get("category", "")).strip(),
+                "pillar": pillar,
                 "reasoning": str(p.get("reasoning", "")).strip(),
             }
         )
