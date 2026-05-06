@@ -12,7 +12,7 @@ from app.api.deps import CurrentUser, DbSession
 from app.models.auth import Organization
 from app.models.canvas import Canvas, Edge, Node
 from app.models.share import CanvasShareToken
-from app.schemas.canvas import CanvasDetail, CanvasOut, EdgeOut, NodeOut
+from app.schemas.canvas import CanvasDetail, CanvasOut, EdgeOut, NodeOut, canvas_to_out, edge_to_out, node_to_out
 from app.schemas.share import (
     CanvasShareTokenCreated,
     CanvasShareTokenOut,
@@ -120,8 +120,8 @@ async def get_public_canvas(token: str, db: DbSession) -> PublicCanvasOut:
         name=canvas.name,
         description=canvas.description,
         organization_name=org.name if org else "",
-        nodes=[NodeOut.model_validate(n).model_dump(mode="json") for n in canvas.nodes],
-        edges=[EdgeOut.model_validate(e).model_dump(mode="json") for e in canvas.edges],
+        nodes=[node_to_out(n).model_dump(mode="json") for n in canvas.nodes],
+        edges=[edge_to_out(e).model_dump(mode="json") for e in canvas.edges],
         created_at=canvas.created_at,
     )
 
@@ -195,7 +195,7 @@ async def clone_from_share(
         .options(selectinload(Canvas.nodes), selectinload(Canvas.edges))
     )
     return CanvasDetail(
-        **CanvasOut.model_validate(canvas).model_dump(),
-        nodes=[NodeOut.model_validate(n) for n in canvas.nodes],
-        edges=[EdgeOut.model_validate(e) for e in canvas.edges],
+        **canvas_to_out(canvas).model_dump(),
+        nodes=[node_to_out(n) for n in canvas.nodes],
+        edges=[edge_to_out(e) for e in canvas.edges],
     )

@@ -8,6 +8,9 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import CurrentUser, DbSession
 from app.models.canvas import Canvas, Edge, Node
 from app.schemas.canvas import (
+    canvas_to_out,
+    edge_to_out,
+    node_to_out,
     CanvasCreate,
     CanvasDetail,
     CanvasOut,
@@ -43,7 +46,7 @@ async def create_canvas(payload: CanvasCreate, current: CurrentUser, db: DbSessi
     )
     db.add(canvas)
     await db.flush()
-    return CanvasOut.model_validate(canvas)
+    return canvas_to_out(canvas)
 
 
 @router.get("", response_model=list[CanvasOut])
@@ -60,7 +63,7 @@ async def list_canvases(
         stmt = stmt.where(Canvas.is_template == is_template)
     stmt = stmt.order_by(Canvas.updated_at.desc())
     result = await db.scalars(stmt)
-    return [CanvasOut.model_validate(c) for c in result.all()]
+    return [canvas_to_out(c) for c in result.all()]
 
 
 @router.get("/templates", response_model=list[CanvasOut])
@@ -71,7 +74,7 @@ async def list_templates(current: CurrentUser, db: DbSession) -> list[CanvasOut]
         .order_by(Canvas.updated_at.desc())
     )
     result = await db.scalars(stmt)
-    return [CanvasOut.model_validate(c) for c in result.all()]
+    return [canvas_to_out(c) for c in result.all()]
 
 
 @router.get("/{canvas_id}", response_model=CanvasDetail)
@@ -84,9 +87,9 @@ async def get_canvas(canvas_id: uuid.UUID, current: CurrentUser, db: DbSession) 
     if canvas is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Canvas not found")
     return CanvasDetail(
-        **CanvasOut.model_validate(canvas).model_dump(),
-        nodes=[NodeOut.model_validate(n) for n in canvas.nodes],
-        edges=[EdgeOut.model_validate(e) for e in canvas.edges],
+        **canvas_to_out(canvas).model_dump(),
+        nodes=[node_to_out(n) for n in canvas.nodes],
+        edges=[edge_to_out(e) for e in canvas.edges],
     )
 
 
@@ -101,7 +104,7 @@ async def update_canvas(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(canvas, field, value)
     await db.flush()
-    return CanvasOut.model_validate(canvas)
+    return canvas_to_out(canvas)
 
 
 @router.delete("/{canvas_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -115,7 +118,7 @@ async def save_as_template(canvas_id: uuid.UUID, current: CurrentUser, db: DbSes
     canvas = await _get_owned_canvas(db, canvas_id, current.organization_id)
     canvas.is_template = True
     await db.flush()
-    return CanvasOut.model_validate(canvas)
+    return canvas_to_out(canvas)
 
 
 @router.post(
@@ -190,9 +193,9 @@ async def create_from_template(
         .options(selectinload(Canvas.nodes), selectinload(Canvas.edges))
     )
     return CanvasDetail(
-        **CanvasOut.model_validate(canvas).model_dump(),
-        nodes=[NodeOut.model_validate(n) for n in canvas.nodes],
-        edges=[EdgeOut.model_validate(e) for e in canvas.edges],
+        **canvas_to_out(canvas).model_dump(),
+        nodes=[node_to_out(n) for n in canvas.nodes],
+        edges=[edge_to_out(e) for e in canvas.edges],
     )
 
 
@@ -268,7 +271,7 @@ async def duplicate_canvas(
         .options(selectinload(Canvas.nodes), selectinload(Canvas.edges))
     )
     return CanvasDetail(
-        **CanvasOut.model_validate(canvas).model_dump(),
-        nodes=[NodeOut.model_validate(n) for n in canvas.nodes],
-        edges=[EdgeOut.model_validate(e) for e in canvas.edges],
+        **canvas_to_out(canvas).model_dump(),
+        nodes=[node_to_out(n) for n in canvas.nodes],
+        edges=[edge_to_out(e) for e in canvas.edges],
     )

@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
 from app.models.canvas import Canvas, Edge, Node
-from app.schemas.canvas import EdgeCreate, EdgeOut
+from app.schemas.canvas import EdgeCreate, EdgeOut, canvas_to_out, edge_to_out, node_to_out
 
 router = APIRouter(tags=["edges"])
 
@@ -42,7 +42,7 @@ async def create_edge(
         await db.flush()
     except Exception as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "Edge already exists") from exc
-    return EdgeOut.model_validate(edge)
+    return edge_to_out(edge)
 
 
 @router.delete("/edges/{edge_id}", status_code=status.HTTP_204_NO_CONTENT)

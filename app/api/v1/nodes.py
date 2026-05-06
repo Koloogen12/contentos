@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
 from app.models.canvas import Canvas, Node
-from app.schemas.canvas import NodeCreate, NodeOut, NodeUpdate
+from app.schemas.canvas import NodeCreate, NodeOut, NodeUpdate, canvas_to_out, edge_to_out, node_to_out
 
 router = APIRouter(tags=["nodes"])
 
@@ -40,7 +40,7 @@ async def create_node(
     )
     db.add(node)
     await db.flush()
-    return NodeOut.model_validate(node)
+    return node_to_out(node)
 
 
 @router.patch("/nodes/{node_id}", response_model=NodeOut)
@@ -54,7 +54,7 @@ async def update_node(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(node, field, value)
     await db.flush()
-    return NodeOut.model_validate(node)
+    return node_to_out(node)
 
 
 @router.delete("/nodes/{node_id}", status_code=status.HTTP_204_NO_CONTENT)

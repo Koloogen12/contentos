@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import CurrentUser, DbSession
 from app.models.canvas import Canvas, Edge, Node
 from app.models.version import CanvasVersion
-from app.schemas.canvas import CanvasDetail, CanvasOut, EdgeOut, NodeOut
+from app.schemas.canvas import CanvasDetail, CanvasOut, EdgeOut, NodeOut, canvas_to_out, edge_to_out, node_to_out
 from app.schemas.version import CanvasVersionCreate, CanvasVersionDetail, CanvasVersionOut
 
 router = APIRouter(tags=["versions"])
@@ -186,9 +186,9 @@ async def restore_version(
         .options(selectinload(Canvas.nodes), selectinload(Canvas.edges))
     )
     return CanvasDetail(
-        **CanvasOut.model_validate(canvas).model_dump(),
-        nodes=[NodeOut.model_validate(n) for n in canvas.nodes],
-        edges=[EdgeOut.model_validate(e) for e in canvas.edges],
+        **canvas_to_out(canvas).model_dump(),
+        nodes=[node_to_out(n) for n in canvas.nodes],
+        edges=[edge_to_out(e) for e in canvas.edges],
     )
 
 
