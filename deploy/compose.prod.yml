@@ -21,7 +21,7 @@
 services:
   api:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     env_file:
       - /etc/contentos/secrets.env
@@ -44,7 +44,7 @@ services:
 
   worker:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     env_file:
       - /etc/contentos/secrets.env
@@ -63,7 +63,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_URL_API}
@@ -72,7 +72,7 @@ services:
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
     ports:
-      - "127.0.0.1:8097:3000"
+      - "127.0.0.1:8098:3000"
     restart: unless-stopped
 
 volumes:

@@ -80,10 +80,19 @@ echo ".env reconciled (DOMAIN=${DOMAIN})"
 REMOTE_SH
 
 echo "6/6 docker compose build + up -d (api/worker/frontend)..."
-ssh "${SSH_HOST}" "cd ${REMOTE_DIR}/deploy && \
-  docker compose -f compose.prod.yml --env-file <(cat .env /etc/contentos/secrets.env) build && \
-  docker compose -f compose.prod.yml --env-file <(cat .env /etc/contentos/secrets.env) up -d && \
-  docker compose -f compose.prod.yml ps"
+ssh "${SSH_HOST}" 'bash -s' <<'REMOTE_COMPOSE'
+set -euo pipefail
+cd /opt/contentos/deploy
+# Merge .env + secrets.env into one file docker compose can consume
+# (docker compose v2 supports multiple --env-file but `bash -c` ssh
+# escaping is fragile, so we just concatenate to a tmp file).
+TMP_ENV="$(mktemp)"
+trap 'rm -f "$TMP_ENV"' EXIT
+cat .env /etc/contentos/secrets.env > "$TMP_ENV"
+docker compose -f compose.prod.yml --env-file "$TMP_ENV" build
+docker compose -f compose.prod.yml --env-file "$TMP_ENV" up -d
+docker compose -f compose.prod.yml --env-file "$TMP_ENV" ps
+REMOTE_COMPOSE
 
 echo
 echo "Bringing nginx site online (idempotent)..."
