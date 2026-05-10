@@ -1,87 +1,65 @@
-# Production stack — runs on the Selectel VPS.
-# Layout on the server:
-#   /opt/contentos/backend/   (clone of github.com/Koloogen12/contentos)
-#   /opt/contentos/frontend/  (clone of github.com/Koloogen12/contentos-front)
-#   /opt/contentos/caddy/Caddyfile
-#   /opt/contentos/compose.prod.yml  (this file, copied here by deploy.sh)
-#   /opt/contentos/.env              (secrets, never committed)
+# ContentOS production stack on Selectel `mml-prod-1` (135.106.146.200).
 #
-# Reverse-proxy contract:
-#   ${DOMAIN}            → frontend (Next.js)
-#   api.${DOMAIN}        → backend  (FastAPI)
-# When DOMAIN is "_" (default), Caddy serves with a self-signed cert and
-# answers any host. Useful for bootstrap before a real domain is wired.
+# Coexists with mml / ohmybet / neurin etc. — this compose ONLY runs our
+# own three services and reuses the host's native Postgres + Redis + nginx.
+# DB / Redis / SSL / certbot are NOT in this file.
+#
+# Layout on the server:
+#   /opt/contentos/backend/        (clone of github.com/Koloogen12/contentos)
+#   /opt/contentos/frontend/       (clone of github.com/Koloogen12/contentos-front)
+#   /opt/contentos/deploy/compose.prod.yml   (this file)
+#   /opt/contentos/deploy/.env               (PUBLIC_URL_*, DOMAIN — see .env.prod.example)
+#   /etc/contentos/secrets.env               (root, 600 — JWT/PG_PASS/REDIS_PASS/CometAPI/etc.)
+#
+# Networking: host-mode for api/worker so they reach 127.0.0.1:5432/6379.
+# Frontend doesn't need host network — listens on 127.0.0.1:8097 via port mapping.
+#
+# Reverse proxy: existing nginx terminates TLS and proxies:
+#   https://draft.neurin.tech       → 127.0.0.1:8097 (frontend)
+#   https://api.draft.neurin.tech   → 127.0.0.1:8096 (api)
 
 services:
-  db:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-contentos}
-      POSTGRES_USER: ${POSTGRES_USER:-contentos}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-contentos} -d ${POSTGRES_DB:-contentos}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    restart: unless-stopped
-
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    env_file: .env
+    env_file:
+      - /etc/contentos/secrets.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-contentos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-contentos}
-      DATABASE_SYNC_URL: postgresql+psycopg://${POSTGRES_USER:-contentos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-contentos}
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://contentos:${POSTGRES_PASSWORD}@127.0.0.1:5432/contentos
+      DATABASE_SYNC_URL: postgresql+psycopg://contentos:${POSTGRES_PASSWORD}@127.0.0.1:5432/contentos
+      REDIS_URL: redis://:${REDIS_PASSWORD}@127.0.0.1:6379/5
       APP_ENV: production
       APP_DEBUG: "false"
       CORS_ORIGINS: ${PUBLIC_URL_FRONT}
+      MAX_UPLOAD_SIZE_MB: "500"
+      TEMP_DIR: /tmp/contentos
+    network_mode: host
     volumes:
       - media-cache:/tmp/contentos
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
+             uvicorn app.main:app --host 127.0.0.1 --port 8096 --proxy-headers --forwarded-allow-ips='*'"
     restart: unless-stopped
 
   worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    env_file: .env
+    env_file:
+      - /etc/contentos/secrets.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-contentos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-contentos}
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://contentos:${POSTGRES_PASSWORD}@127.0.0.1:5432/contentos
+      REDIS_URL: redis://:${REDIS_PASSWORD}@127.0.0.1:6379/5
       APP_ENV: production
       APP_DEBUG: "false"
+    network_mode: host
     volumes:
       - media-cache:/tmp/contentos
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     command: ["arq", "app.workers.queue.WorkerSettings"]
     restart: unless-stopped
+    depends_on:
+      - api
 
   frontend:
     build:
@@ -92,30 +70,10 @@ services:
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_URL_API}
       PORT: "3000"
-    restart: unless-stopped
-    depends_on:
-      - api
-
-  caddy:
-    image: caddy:2-alpine
+      HOSTNAME: "0.0.0.0"
     ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      DOMAIN: ${DOMAIN:-_}
-      ACME_EMAIL: ${ACME_EMAIL:-internal}
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on:
-      - api
-      - frontend
+      - "127.0.0.1:8097:3000"
     restart: unless-stopped
 
 volumes:
-  postgres-data:
-  redis-data:
   media-cache:
-  caddy-data:
-  caddy-config:
