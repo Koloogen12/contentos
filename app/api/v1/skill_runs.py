@@ -108,7 +108,16 @@ async def run_node(
 
 
 _EXTRACT_TWEAKS = {"amplify", "rephrase", "reextract"}
-_FORMAT_TWEAKS = {"regenerate", "rehook", "shorten", "amplify_voice", "platform_optimize"}
+_FORMAT_TWEAKS = {
+    "regenerate",
+    "rehook",
+    "shorten",
+    "amplify_voice",
+    "platform_optimize",
+    # Редактура проходами: смысл → тональность → предложение → слово →
+    # ритм → приметы машинного текста (skills/tweak.py#_FORMAT_EDIT).
+    "edit",
+}
 
 
 @router.post(
