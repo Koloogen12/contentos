@@ -44,6 +44,38 @@ class VoiceTraitsExtracted(BaseModel):
     samples_analyzed: int
 
 
+class RedpolitikaDraft(BaseModel):
+    """Черновик редполитики: читатель, площадки, регистр, словарь, фактура.
+
+    Всё, что модель смогла вывести из образцов, приходит заполненным; всё,
+    чего в текстах не видно, — пустым и перечислено в `gaps`. Пустое поле
+    здесь честнее выдуманного: редполитика с придуманным читателем хуже,
+    чем редполитика без него, потому что ей начинают доверять.
+    """
+
+    reader: str = ""
+    platforms: dict[str, str] = Field(default_factory=dict)
+    register: str = ""
+    register_exceptions: str = ""
+    lexicon_forbidden: list[str] = Field(default_factory=list)
+    lexicon_required: list[str] = Field(default_factory=list)
+    evidence_base: list[str] = Field(default_factory=list)
+    gaps: list[str] = Field(default_factory=list)
+    samples_analyzed: int = 0
+
+
+class RedpolitikaUpdate(BaseModel):
+    """То, что пользователь подтвердил или поправил в черновике."""
+
+    reader: str = ""
+    platforms: dict[str, str] = Field(default_factory=dict)
+    register: str = ""
+    register_exceptions: str = ""
+    lexicon_forbidden: list[str] = Field(default_factory=list)
+    lexicon_required: list[str] = Field(default_factory=list)
+    evidence_base: list[str] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Auto-import (Telegram public channel / YouTube channel / blog URLs)
 # ---------------------------------------------------------------------------

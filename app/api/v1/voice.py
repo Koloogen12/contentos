@@ -11,6 +11,8 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser, DbSession
 from app.models.knowledge import BrandContext, VoiceSample
 from app.schemas.voice import (
+    RedpolitikaDraft,
+    RedpolitikaUpdate,
     TelegramImportRequest,
     UrlImportRequest,
     VoiceImportResult,
@@ -428,4 +430,154 @@ async def extract_traits(current: CurrentUser, db: DbSession) -> VoiceTraitsExtr
         recurring_phrases=phrases,
         tone_calibration=tone,
         samples_analyzed=len(samples),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Редполитика
+# ---------------------------------------------------------------------------
+#
+# Голос, собранный из образцов, отвечает только на «как звучит автор».
+# Редполитика отвечает на остальное: кто читатель, где живёт текст, какой
+# регистр, какие слова обязательны, на что текст опирается. Без этих ответов
+# генерация выходит гладкой и ничьей.
+#
+# Метод (Людмила Сарычева) требует интервью, а не анкеты: часть ответов
+# восстанавливается из уже написанных текстов, и спрашивать нужно только то,
+# чего в них не видно. Поэтому эндпоинт делает ЧЕРНОВИК: заполняет выводимое
+# и честно перечисляет дыры в `gaps`, а решает всегда человек.
+
+_REDPOLITIKA_SYSTEM = """\
+Ты редактор, который собирает редполитику проекта по текстам автора.
+
+Редполитика — рабочая памятка, а не энциклопедия. В неё попадает только то,
+что можно применить при правке конкретного текста.
+
+Разбери образцы и заполни поля. ВАЖНО: заполняй поле, только если вывод
+опирается на сами тексты. Всё остальное оставь пустым и выпиши вопросом в
+`gaps`. Пустое поле честнее выдуманного: редполитике начинают доверять, и
+придуманный читатель испортит все будущие тексты.
+
+- reader: живой человек в конкретной ситуации, а не сегмент. «Все
+  предприниматели» — плохо. «Основатели, которые сами пишут посты и не
+  успевают» — хорошо. Если из текстов видно только тему, но не читателя,
+  оставь пустым.
+- platforms: словарь «площадка → как там звучит текст». Площадка задаёт
+  регистр: одна мысль в статье и в посте звучит по-разному. Бери только те
+  площадки, следы которых видно в образцах.
+- register: строгий (третье лицо, факты вперёд, без повелительного) или
+  авторский (первое лицо, живой разговор, разговорные слова). Одно
+  предложение с признаками, по которым это видно.
+- register_exceptions: где регистр меняется, если это видно.
+- lexicon_forbidden: слова и обороты, которых у автора НЕТ, хотя тема их
+  просила бы. Это и есть его запреты.
+- lexicon_required: принятые названия — как автор называет продукт, роли,
+  разделы, аудиторию. Дословно, как в текстах.
+- evidence_base: на что опираются тексты — личный опыт, цифры продукта,
+  чужие исследования, клиентские истории, разборы.
+- gaps: чего из текстов не видно. Формулируй вопросом автору, коротко.
+
+Ответ строго JSON:
+{
+  "reader": "",
+  "platforms": {"площадка": "как звучит"},
+  "register": "",
+  "register_exceptions": "",
+  "lexicon_forbidden": ["..."],
+  "lexicon_required": ["..."],
+  "evidence_base": ["..."],
+  "gaps": ["..."]
+}"""
+
+
+def _str_list(value: object, limit: int = 20) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(x).strip() for x in value if str(x).strip()][:limit]
+
+
+@router.post("/redpolitika/draft", response_model=RedpolitikaDraft)
+async def draft_redpolitika(current: CurrentUser, db: DbSession) -> RedpolitikaDraft:
+    """Собрать черновик редполитики из образцов голоса."""
+    samples = list(
+        (
+            await db.scalars(
+                select(VoiceSample)
+                .where(VoiceSample.organization_id == current.organization_id)
+                .order_by(VoiceSample.created_at.desc())
+                .limit(50)
+            )
+        ).all()
+    )
+    if len(samples) < 3:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Нужно как минимум 3 текста, иначе выводы о голосе будут наугад.",
+        )
+
+    parsed = await ai_client.chat_json(
+        system=_REDPOLITIKA_SYSTEM,
+        user="\n\n---\n\n".join(s.text for s in samples)[:30000],
+        temperature=0.3,
+        max_tokens=2500,
+    )
+
+    raw_platforms = parsed.get("platforms")
+    platforms = (
+        {str(k).strip(): str(v).strip() for k, v in raw_platforms.items() if str(v).strip()}
+        if isinstance(raw_platforms, dict)
+        else {}
+    )
+
+    return RedpolitikaDraft(
+        reader=str(parsed.get("reader") or "").strip(),
+        platforms=platforms,
+        register=str(parsed.get("register") or "").strip(),
+        register_exceptions=str(parsed.get("register_exceptions") or "").strip(),
+        lexicon_forbidden=_str_list(parsed.get("lexicon_forbidden")),
+        lexicon_required=_str_list(parsed.get("lexicon_required")),
+        evidence_base=_str_list(parsed.get("evidence_base")),
+        gaps=_str_list(parsed.get("gaps")),
+        samples_analyzed=len(samples),
+    )
+
+
+@router.put("/redpolitika", response_model=RedpolitikaUpdate)
+async def save_redpolitika(
+    payload: RedpolitikaUpdate, current: CurrentUser, db: DbSession
+) -> RedpolitikaUpdate:
+    """Записать подтверждённую редполитику в brand context.
+
+    Пишем только присланные ключи и не трогаем остальной brand context:
+    голос, табу и манифест собираются другими экранами.
+    """
+    bc = await db.scalar(
+        select(BrandContext).where(BrandContext.organization_id == current.organization_id)
+    )
+    if bc is None:
+        bc = BrandContext(organization_id=current.organization_id, data={}, version=1)
+        db.add(bc)
+
+    data = dict(bc.data or {})
+    data.update(payload.model_dump())
+    bc.data = data
+    bc.version = (bc.version or 1) + 1
+    await db.flush()
+    return payload
+
+
+@router.get("/redpolitika", response_model=RedpolitikaUpdate)
+async def get_redpolitika(current: CurrentUser, db: DbSession) -> RedpolitikaUpdate:
+    bc = await db.scalar(
+        select(BrandContext).where(BrandContext.organization_id == current.organization_id)
+    )
+    data = dict((bc.data if bc else None) or {})
+    return RedpolitikaUpdate(
+        reader=str(data.get("reader") or ""),
+        platforms=data.get("platforms") if isinstance(data.get("platforms"), dict) else {},
+        register=str(data.get("register") or ""),
+        register_exceptions=str(data.get("register_exceptions") or ""),
+        lexicon_forbidden=_str_list(data.get("lexicon_forbidden")),
+        lexicon_required=_str_list(data.get("lexicon_required")),
+        evidence_base=_str_list(data.get("evidence_base")),
     )

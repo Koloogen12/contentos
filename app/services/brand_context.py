@@ -65,7 +65,72 @@ def _format_brand(data: dict[str, Any]) -> str:
         if isinstance(pillars, dict) and pillars:
             lines = [f"- {k}: {v}" for k, v in pillars.items()]
             parts.append("\nСТОЛБЫ КОНТЕНТА АВТОРА:\n" + "\n".join(lines))
+    if redpol := _format_redpolitika(data):
+        parts.append("\n" + redpol)
     return "\n".join(parts).strip()
+
+
+def _as_lines(value: Any) -> str:
+    """Список → маркированные строки, строка → как есть."""
+    if isinstance(value, list):
+        return "\n".join(f"- {item}" for item in value if str(item).strip())
+    return str(value).strip()
+
+
+def _format_redpolitika(data: dict[str, Any]) -> str:
+    """Редполитика: читатель, площадки, регистр, словарь, фактура.
+
+    Голос, собранный из образцов, отвечает только на вопрос «как звучит
+    автор». Он не отвечает, кто читатель, где живёт текст и на что текст
+    опирается — а именно от этого зависит длина, прямота и то, можно ли
+    вообще писать без дополнительного материала. Блоки и их порядок взяты
+    из метода редполитики (Людмила Сарычева).
+
+    Словарь проекта здесь главнее общего вкуса: если продукт называет
+    раздел «кабинетом», модель не имеет права заменить его на «личный
+    кабинет пользователя», даже если так «грамотнее».
+    """
+    parts: list[str] = []
+
+    if reader := data.get("reader"):
+        parts.append(f"ЧИТАТЕЛЬ: {reader}")
+
+    platforms = data.get("platforms")
+    if isinstance(platforms, dict) and platforms:
+        # Площадка задаёт регистр: одна мысль в статье и в пуше звучит
+        # по-разному. Поэтому регистр держим не общий, а по площадке.
+        lines = [f"- {name}: {rule}" for name, rule in platforms.items() if rule]
+        if lines:
+            parts.append("ПЛОЩАДКИ И ИХ РЕГИСТР:\n" + "\n".join(lines))
+    elif platforms:
+        parts.append(f"ПЛОЩАДКИ: {_as_lines(platforms)}")
+
+    if register := data.get("register"):
+        line = f"РЕГИСТР ПО УМОЛЧАНИЮ: {register}"
+        if exceptions := data.get("register_exceptions"):
+            line += f"\nИсключения: {exceptions}"
+        parts.append(line)
+
+    if forbidden := data.get("lexicon_forbidden"):
+        parts.append(
+            "СЛОВА, КОТОРЫХ В ТЕКСТЕ БЫТЬ НЕ ДОЛЖНО:\n" + _as_lines(forbidden)
+        )
+    if required := data.get("lexicon_required"):
+        parts.append(
+            "ПРИНЯТЫЕ НАЗВАНИЯ — использовать именно их, синонимы не подбирать:\n"
+            + _as_lines(required)
+        )
+
+    if evidence := data.get("evidence_base"):
+        parts.append(
+            "НА ЧТО ОПИРАЮТСЯ ТЕКСТЫ:\n"
+            + _as_lines(evidence)
+            + "\nФакт, наблюдение и предположение различай явно. Если нужной "
+            "фактуры нет ни в материале, ни здесь — не выдумывай её, а честно "
+            "укажи, чего не хватает."
+        )
+
+    return "\n\n".join(parts)
 
 
 def _format_project(project: Project) -> str:
