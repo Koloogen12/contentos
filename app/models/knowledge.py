@@ -49,6 +49,12 @@ class Project(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     color: Mapped[str] = mapped_column(String(50), default="#6366f1", nullable=False)
     context: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    # Visual rendering preferences (username/numbering/style). Consumed by
+    # `app/services/render/carousel.py` when a format-node renders to JPEG.
+    # See migration 0006_project_brand_visual for the field schema.
+    brand_visual: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, nullable=False
+    )
 
     organization: Mapped["Organization"] = relationship(back_populates="projects")
     canvases: Mapped[list["Canvas"]] = relationship(back_populates="project")

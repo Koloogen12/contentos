@@ -7,7 +7,12 @@ from app.api.v1 import (
     content_plan,
     edges,
     knowledge,
+    linkedin,
+    llm_node,
+    media,
     nodes,
+    performance,
+    render,
     projects,
     publish,
     search,
@@ -23,6 +28,7 @@ api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth.router)
 api_router.include_router(canvases.router)
 api_router.include_router(nodes.router)
+api_router.include_router(llm_node.router)
 api_router.include_router(edges.router)
 api_router.include_router(skill_runs.router)
 api_router.include_router(projects.router)
@@ -37,3 +43,7 @@ api_router.include_router(versions.router)
 api_router.include_router(content_plan.router)
 api_router.include_router(content_plan.schedule_router)
 api_router.include_router(search.router)
+api_router.include_router(linkedin.router)
+api_router.include_router(media.router)
+api_router.include_router(render.router)
+api_router.include_router(performance.router)

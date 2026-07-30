@@ -34,15 +34,30 @@ openai==1.55.3
 tiktoken==0.8.0
 
 # Transcription
-youtube-transcript-api==0.6.3
-yt-dlp==2024.11.18
+# youtube-transcript-api 1.x changed API surface (api.list / FetchedTranscript)
+# and is required because YouTube changed the captions endpoint mid-2025.
+# yt-dlp must stay reasonably fresh — YouTube's nsig/player JS changes break
+# old releases (the 2024.11 release literally cannot fetch any audio formats).
+youtube-transcript-api==1.2.4
+yt-dlp==2026.3.17
 pydub==0.25.1
 
 # Storage
 boto3==1.35.79
 
-# HTTP client
+# Visual rendering — HTML carousel templates → JPEG slides at 3x DPI.
+# Playwright drives a headless Chromium that we install once at image
+# build time (`playwright install --with-deps chromium`). Pillow is used
+# to optimise / resize the resulting screenshots before S3 upload.
+playwright==1.49.0
+Pillow==11.0.0
+
+# HTTP client + HTML parsing (for voice auto-import from public sources)
 httpx==0.28.0
+beautifulsoup4==4.12.3
+lxml==5.3.0
+# Article-body extraction from arbitrary blog URLs.
+trafilatura==1.12.2
 
 # Telegram (lightweight, just for posting)
 aiogram==3.15.0

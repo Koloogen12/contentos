@@ -13,6 +13,7 @@ from app.models.publish import PublishLog, PublishStatus, TelegramTarget
 from app.models.content_plan import PlannedPost
 from app.models.share import CanvasShareToken
 from app.models.version import CanvasVersion
+from app.models.linkedin import LinkedInAccount
 
 __all__ = [
     "Base",
@@ -38,4 +39,5 @@ __all__ = [
     "CanvasShareToken",
     "CanvasVersion",
     "PlannedPost",
+    "LinkedInAccount",
 ]

@@ -12,10 +12,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.canvas import Node
 from app.services import ai_client
-from app.services.skills.base import register
+from app.services.skills.base import (
+    OUTPUT_LANGUAGE_DIRECTIVE,
+    VOICE_RULE_BLOCK,
+    register,
+    strip_meta_offers,
+)
 
 SYSTEM_TEMPLATE = """\
 {brand_context}
+
+{language_directive}
 
 Ты пишешь Instagram пост (статичный single-post или фото с подписью). Не carousel \
 и не Reels — для них есть отдельные скиллы.
@@ -25,6 +32,8 @@ SYSTEM_TEMPLATE = """\
 2. Тело — 80–250 слов, абзацами через пустую строку. Без эмодзи.
 3. CTA — короткий призыв к комментарию или сохранению.
 4. Подсказка по визуалу — что показать на фото / что в кадре. Один-два предложения.
+
+{voice_rule}
 
 ОТВЕТ СТРОГО как JSON:
 {{
@@ -53,18 +62,22 @@ async def run(
     if not tp:
         raise ValueError("Нет входного тезиса")
 
-    system = SYSTEM_TEMPLATE.format(brand_context=system_context or "Нет brand context.")
+    system = SYSTEM_TEMPLATE.format(
+        brand_context=system_context or "Нет brand context.",
+        language_directive=OUTPUT_LANGUAGE_DIRECTIVE,
+        voice_rule=VOICE_RULE_BLOCK,
+    )
     user = USER_TEMPLATE.format(talking_point=tp)
 
     parsed = await ai_client.chat_json(
         system=system, user=user, temperature=0.8, max_tokens=2000
     )
 
-    hook = str(parsed.get("hook", "")).strip()
-    caption = str(parsed.get("caption", "")).strip()
-    body = str(parsed.get("body", "")).strip()
-    cta = str(parsed.get("cta", "")).strip()
-    visual = str(parsed.get("visual_direction", "")).strip()
+    hook = strip_meta_offers(str(parsed.get("hook", "")))
+    caption = strip_meta_offers(str(parsed.get("caption", "")))
+    body = strip_meta_offers(str(parsed.get("body", "")))
+    cta = strip_meta_offers(str(parsed.get("cta", "")))
+    visual = strip_meta_offers(str(parsed.get("visual_direction", "")))
     if not caption and (hook or body):
         caption = "\n\n".join(p for p in (hook, body, cta) if p)
     if not caption:

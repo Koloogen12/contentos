@@ -11,9 +11,11 @@ from sqlalchemy import select
 from sse_starlette.sse import EventSourceResponse
 
 from app.api.deps import CurrentUser, CurrentUserSse, DbSession
+from app.models.auth import Organization
 from app.models.canvas import Canvas, Edge, Node, SkillRun
 from app.schemas.skill_run import SkillRunOut, SkillRunStarted
 from app.services import events
+from app.services import trial as trial_svc
 from app.services.skills import skill_for_node
 from app.workers.queue import get_arq_pool
 
@@ -50,6 +52,23 @@ async def _get_owned_skill_run(db, skill_run_id: uuid.UUID, org_id: uuid.UUID) -
     return sr
 
 
+async def _gate_ai_quota(db, org_id: uuid.UUID) -> None:
+    """Trial quota check: load org, raise 402 if over the AI-runs cap.
+
+    No-op for regular orgs. Called from every endpoint that enqueues an
+    AI worker job (run_node, tweak_node, render_node_visual,
+    render_slide_tweak, brain_dump, etc.).
+    """
+    org = await db.scalar(select(Organization).where(Organization.id == org_id))
+    if org is not None:
+        await trial_svc.assert_ai_quota(db, org)
+
+
+async def _incr_ai_usage(db, org_id: uuid.UUID) -> None:
+    """Bump trial counter post-flight. Idempotent at SQL level."""
+    await trial_svc.incr_ai_usage(db, org_id)
+
+
 @router.post(
     "/nodes/{node_id}/run",
     response_model=SkillRunStarted,
@@ -70,6 +89,8 @@ async def run_node(
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
+    await _gate_ai_quota(db, current.organization_id)
+
     skill_run = SkillRun(
         node_id=node.id,
         skill=skill_name,
@@ -77,6 +98,7 @@ async def run_node(
         created_at=datetime.now(timezone.utc),
     )
     db.add(skill_run)
+    await _incr_ai_usage(db, current.organization_id)
     await db.flush()
 
     pool = await get_arq_pool()
@@ -132,6 +154,8 @@ async def tweak_node(
             status.HTTP_400_BAD_REQUEST, "Tweak доступен только для extract и format нод"
         )
 
+    await _gate_ai_quota(db, current.organization_id)
+
     skill_run = SkillRun(
         node_id=node.id,
         skill="tweak",
@@ -140,12 +164,83 @@ async def tweak_node(
         input_snapshot=snapshot,
     )
     db.add(skill_run)
+    await _incr_ai_usage(db, current.organization_id)
     await db.flush()
 
     pool = await get_arq_pool()
     await pool.enqueue_job("run_skill", str(skill_run.id))
 
     return SkillRunStarted(skill_run_id=skill_run.id, skill="tweak", status="pending")
+
+
+@router.post(
+    "/nodes/{node_id}/render-visual",
+    response_model=SkillRunStarted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def render_node_visual(
+    node_id: uuid.UUID,
+    current: CurrentUser,
+    db: DbSession,
+) -> SkillRunStarted:
+    """Kick off the visual carousel render pipeline for a format-node.
+
+    Re-uses the SkillRun envelope so the frontend can poll/stream progress
+    through the same endpoints (`GET /skill-runs/{id}`,
+    `/skill-runs/{id}/stream`). The result is materialised back into
+    `node.data["rendered_slides"]` once the worker completes — see
+    `app/workers/tasks.render_carousel` for the schema.
+
+    Pre-flight validation here (not in the worker) so the user gets a
+    synchronous 400 instead of waiting for a queued job to fail:
+      - node must be a format-node
+      - node.data.platform must be "carousel"
+      - node.data.slides must be non-empty (i.e. carousel skill ran first)
+    """
+    node = await _get_owned_node(db, node_id, current.organization_id)
+    if node.type != "format":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Render visual доступен только для format-нод",
+        )
+    data = node.data or {}
+    if (data.get("platform") or "") != "carousel":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Render visual поддерживается только для carousel-формата",
+        )
+    if not (data.get("slides") or []):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Сначала запусти карусель (нет слайдов для рендера)",
+        )
+
+    # Trial users have a separate (much smaller) render quota — rendering
+    # a carousel runs gpt-image-2 + Playwright + S3 upload, 5× more
+    # expensive than a plain text completion.
+    org = await db.scalar(select(Organization).where(Organization.id == current.organization_id))
+    if org is not None:
+        await trial_svc.assert_render_quota(db, org)
+
+    skill_run = SkillRun(
+        node_id=node.id,
+        skill="render_carousel",
+        status="pending",
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(skill_run)
+    if org is not None:
+        await trial_svc.incr_render_usage(db, current.organization_id)
+    await db.flush()
+
+    pool = await get_arq_pool()
+    await pool.enqueue_job("render_carousel", str(skill_run.id))
+
+    return SkillRunStarted(
+        skill_run_id=skill_run.id,
+        skill="render_carousel",
+        status="pending",
+    )
 
 
 @router.post(
@@ -188,10 +283,12 @@ async def run_canvas(
     )
 
     parent_of: dict[uuid.UUID, Node] = {}
+    edge_to_target: dict[uuid.UUID, Edge] = {}
     by_id = {n.id: n for n in nodes}
     for e in edges:
         if e.target_node_id in by_id and e.source_node_id in by_id:
             parent_of[e.target_node_id] = by_id[e.source_node_id]
+            edge_to_target[e.target_node_id] = e
 
     pool = await get_arq_pool()
     started: list[SkillRunStarted] = []
@@ -214,10 +311,22 @@ async def run_canvas(
                 continue
             if n.type == "format":
                 if parent.type == "extract":
-                    tps = parent_data.get("talking_points") or []
-                    if not tps or parent_data.get("selected_index") is None:
-                        skipped += 1
-                        continue
+                    # Summary-mode parents feed format nodes directly from
+                    # `summary` — no tezis needed.
+                    if (parent_data.get("extract_mode") or "talking_points") == "summary":
+                        if not (parent_data.get("summary") or "").strip():
+                            skipped += 1
+                            continue
+                    else:
+                        tps = parent_data.get("talking_points") or []
+                        # Prefer per-edge tezis_index (format node spawned from a
+                        # specific tezis card); fall back to parent's selection.
+                        edge = edge_to_target.get(n.id)
+                        edge_idx = (edge.data or {}).get("tezis_index") if edge else None
+                        idx = edge_idx if isinstance(edge_idx, int) else parent_data.get("selected_index")
+                        if not tps or idx is None or idx < 0 or idx >= len(tps):
+                            skipped += 1
+                            continue
                 elif parent.type == "source":
                     if not (parent_data.get("content") or "").strip():
                         skipped += 1

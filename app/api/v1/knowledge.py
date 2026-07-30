@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
@@ -17,6 +18,8 @@ from app.schemas.knowledge import (
     KnowledgeItemUpdate,
     KnowledgeTypeT,
 )
+from app.services import brand_context as brand_context_svc
+from app.services import brain_dump as brain_dump_svc
 from app.services.content_plan import what_to_write as svc_what_to_write
 
 router = APIRouter(tags=["knowledge"])
@@ -129,7 +132,7 @@ async def update_knowledge(
 
 
 @router.delete("/knowledge/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_knowledge(item_id: uuid.UUID, current: CurrentUser, db: DbSession) -> None:
+async def delete_knowledge(item_id: uuid.UUID, current: CurrentUser, db: DbSession):
     obj = await _owned_item(db, item_id, current.organization_id)
     await db.delete(obj)
 
@@ -213,7 +216,7 @@ async def attach_knowledge(
     item_id: uuid.UUID,
     current: CurrentUser,
     db: DbSession,
-) -> None:
+):
     await _owned_node(db, node_id, current.organization_id)
     item = await _owned_item(db, item_id, current.organization_id)
 
@@ -241,7 +244,7 @@ async def detach_knowledge(
     item_id: uuid.UUID,
     current: CurrentUser,
     db: DbSession,
-) -> None:
+):
     await _owned_node(db, node_id, current.organization_id)
     link = await db.scalar(
         select(NodeKnowledge).where(
@@ -251,3 +254,87 @@ async def detach_knowledge(
     )
     if link is not None:
         await db.delete(link)
+
+
+# ---------------------------------------------------------------------------
+# Brain dump → tezis proposals (NOT auto-saved)
+# ---------------------------------------------------------------------------
+
+
+class BrainDumpRequest(BaseModel):
+    """User pastes free-form text. We DO NOT persist anything here —
+    we just return AI-parsed tezis proposals. The frontend renders them
+    as cards with `Save` buttons; saved ones become real KnowledgeItems
+    via the existing `POST /knowledge` endpoint."""
+
+    text: str = Field(min_length=5, max_length=8000)
+
+
+class BrainDumpProposal(BaseModel):
+    """One AI-parsed candidate tezis. Shape mirrors `KnowledgeItemCreate`
+    fields so the frontend can pass it through `POST /knowledge` mostly
+    unchanged (just adds `type='tezis'` if absent)."""
+
+    title: str
+    body: str
+    viral_score: int
+    pillar: str | None
+    tags: list[str]
+
+
+class BrainDumpResponse(BaseModel):
+    proposals: list[BrainDumpProposal]
+
+
+async def _gate_trial_ai(db, org_id):
+    """Local copy of skill_runs._gate_ai_quota — avoids cross-file import."""
+    from app.models.auth import Organization
+    from app.services import trial as trial_svc
+
+    org = await db.scalar(select(Organization).where(Organization.id == org_id))
+    if org is not None:
+        await trial_svc.assert_ai_quota(db, org)
+        if trial_svc.is_trial(org):
+            await trial_svc.incr_ai_usage(db, org_id)
+
+
+@router.post("/knowledge/brain-dump", response_model=BrainDumpResponse)
+async def brain_dump_to_tezis(
+    payload: BrainDumpRequest,
+    current: CurrentUser,
+    db: DbSession,
+) -> BrainDumpResponse:
+    """Parse free-form thought / paragraph / chat-snippet into 3-7 tezis.
+
+    Friction-reducer: the user has an idea and wants it in the bank
+    without first uploading a YouTube transcript or running a full
+    extract node. AI handles the parsing + scoring + pillar mapping;
+    the user picks which proposals to keep.
+
+    The endpoint is intentionally idempotent (no DB writes here) — so
+    the user can re-call with refined text until the proposals look
+    right, then explicitly save the ones they want via
+    `POST /knowledge`.
+    """
+    await _gate_trial_ai(db, current.organization_id)
+
+    system_context = await brand_context_svc.build_skill_context(
+        db,
+        organization_id=current.organization_id,
+    )
+    try:
+        proposals_raw = await brain_dump_svc.parse_brain_dump(
+            system_context=system_context,
+            text=payload.text,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            f"AI не справился с разбором brain-dump: {exc}",
+        ) from exc
+
+    return BrainDumpResponse(
+        proposals=[BrainDumpProposal(**p) for p in proposals_raw],
+    )

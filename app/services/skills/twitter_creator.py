@@ -7,10 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.canvas import Node
 from app.services import ai_client
-from app.services.skills.base import register
+from app.services.skills.base import (
+    OUTPUT_LANGUAGE_DIRECTIVE,
+    VOICE_RULE_BLOCK,
+    register,
+    strip_meta_offers,
+)
 
 SYSTEM_TEMPLATE = """\
 {brand_context}
+
+{language_directive}
 
 Ты пишешь для X / Twitter на основе одного тезиса. Решаешь сам — один пост (если \
 влезает в 280 символов с воздухом) или тред (2–7 твитов).
@@ -23,6 +30,8 @@ SYSTEM_TEMPLATE = """\
 
 Стиль X: ёмкий, парадоксальный, конкретный. Хорошо заходят: цифры, контраст, \
 неочевидный угол, личный опыт в одной строке.
+
+{voice_rule}
 
 ОТВЕТ СТРОГО как JSON:
 {{
@@ -50,7 +59,11 @@ async def run(
     if not tp:
         raise ValueError("Нет входного тезиса")
 
-    system = SYSTEM_TEMPLATE.format(brand_context=system_context or "Нет brand context.")
+    system = SYSTEM_TEMPLATE.format(
+        brand_context=system_context or "Нет brand context.",
+        language_directive=OUTPUT_LANGUAGE_DIRECTIVE,
+        voice_rule=VOICE_RULE_BLOCK,
+    )
     user = USER_TEMPLATE.format(talking_point=tp)
 
     parsed = await ai_client.chat_json(
@@ -58,7 +71,8 @@ async def run(
     )
 
     tweets_raw = parsed.get("tweets") or []
-    tweets = [str(t).strip() for t in tweets_raw if str(t).strip()]
+    tweets = [strip_meta_offers(str(t)) for t in tweets_raw if str(t).strip()]
+    tweets = [t for t in tweets if t]
     if not tweets:
         raise RuntimeError("AI не вернул tweets")
 
@@ -66,8 +80,8 @@ async def run(
     if fmt not in ("single", "thread"):
         fmt = "single" if len(tweets) == 1 else "thread"
 
-    hook = str(parsed.get("hook", "")).strip() or tweets[0]
-    cta = str(parsed.get("cta", "")).strip()
+    hook = strip_meta_offers(str(parsed.get("hook", ""))) or tweets[0]
+    cta = strip_meta_offers(str(parsed.get("cta", "")))
 
     full_text = "\n\n".join(tweets)
 

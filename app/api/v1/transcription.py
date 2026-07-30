@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser, DbSession
 from app.models.canvas import Canvas, Node, SkillRun
 from app.schemas.transcription import (
+    FetchUrlArticleIn,
     TranscribeYoutubeIn,
     TranscriptionStarted,
     YoutubeMetaOut,
@@ -92,6 +93,34 @@ async def transcribe_youtube(
         input_snapshot={"url": payload.url},
     )
     return TranscriptionStarted(skill_run_id=sr.id, skill="transcribe_youtube", status="pending")
+
+
+@router.post(
+    "/nodes/{node_id}/fetch-url",
+    response_model=TranscriptionStarted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def fetch_url_article(
+    node_id: uuid.UUID,
+    payload: FetchUrlArticleIn,
+    current: CurrentUser,
+    db: DbSession,
+) -> TranscriptionStarted:
+    """Kick off the URL→article fetch. Async because trafilatura is blocking
+    (httpx-under-the-hood with ~10s timeouts) and we don't want to tie up
+    the API worker for the duration. The skill writes content back to
+    `node.data` when it completes; the frontend polls the SkillRun for
+    status the same way it does for YouTube transcription."""
+    await _owned_source_node(db, node_id, current.organization_id)
+    sr = await _enqueue_skill_with_input(
+        db,
+        node_id=node_id,
+        skill="fetch_url_article",
+        input_snapshot={"url": payload.url},
+    )
+    return TranscriptionStarted(
+        skill_run_id=sr.id, skill="fetch_url_article", status="pending"
+    )
 
 
 @router.post(

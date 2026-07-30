@@ -7,10 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.canvas import Node
 from app.services import ai_client
-from app.services.skills.base import register
+from app.services.skills.base import (
+    OUTPUT_LANGUAGE_DIRECTIVE,
+    VOICE_RULE_BLOCK,
+    register,
+    strip_meta_offers,
+)
 
 SYSTEM_TEMPLATE = """\
 {brand_context}
+
+{language_directive}
 
 Ты пишешь сценарий короткого видео (Reels / TikTok / Shorts) на основе тезиса. Целевая длина 30–45 секунд.
 
@@ -22,6 +29,8 @@ SYSTEM_TEMPLATE = """\
     - duration_sec: ориентир длительности
 - CTA — одно предложение. Не «подписывайся».
 - caption — пост-описание под видео для платформы (200–500 символов, без хэштегов).
+
+{voice_rule}
 
 ОТВЕТ СТРОГО как JSON:
 {{
@@ -70,12 +79,17 @@ async def run(
     if not tp:
         raise ValueError("Нет входного тезиса")
 
-    system = SYSTEM_TEMPLATE.format(brand_context=system_context or "Нет brand context.")
+    system = SYSTEM_TEMPLATE.format(
+        brand_context=system_context or "Нет brand context.",
+        language_directive=OUTPUT_LANGUAGE_DIRECTIVE,
+        voice_rule=VOICE_RULE_BLOCK,
+    )
     user = USER_TEMPLATE.format(talking_point=tp)
 
     parsed = await ai_client.chat_json(system=system, user=user, temperature=0.85, max_tokens=2500)
 
-    hooks = [str(h).strip() for h in (parsed.get("hooks") or []) if str(h).strip()]
+    hooks = [strip_meta_offers(str(h)) for h in (parsed.get("hooks") or []) if str(h).strip()]
+    hooks = [h for h in hooks if h]
     if not hooks:
         raise RuntimeError("AI не вернул hooks")
     selected = parsed.get("selected_hook_index", 0)
@@ -89,16 +103,16 @@ async def run(
             continue
         beats.append(
             {
-                "script": str(b.get("script", "")).strip(),
-                "visual": str(b.get("visual", "")).strip(),
+                "script": strip_meta_offers(str(b.get("script", ""))),
+                "visual": strip_meta_offers(str(b.get("visual", ""))),
                 "duration_sec": int(b.get("duration_sec") or 5),
             }
         )
     if len(beats) < 3:
         raise RuntimeError("AI вернул слишком мало сцен")
 
-    cta = str(parsed.get("cta", "")).strip()
-    caption = str(parsed.get("caption", "")).strip()
+    cta = strip_meta_offers(str(parsed.get("cta", "")))
+    caption = strip_meta_offers(str(parsed.get("caption", "")))
     total_sec = sum(b["duration_sec"] for b in beats)
 
     new_data = dict(node.data or {})

@@ -33,23 +33,51 @@ def extract_video_id(url: str) -> str | None:
 
 
 async def fetch_meta(url: str) -> dict[str, Any]:
+    """Best-effort metadata. yt-dlp can choke on Shorts / age-gated videos
+    even with skip_download — fall back to {video_id} parsed from the URL
+    so the captions path still gets a chance.
+    """
     def _run() -> dict[str, Any]:
-        ydl_opts = {"quiet": True, "skip_download": True, "noprogress": True}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-        return {
-            "title": info.get("title"),
-            "duration_seconds": info.get("duration"),
-            "channel": info.get("uploader") or info.get("channel"),
-            "video_id": info.get("id"),
+        ydl_opts = {
+            "quiet": True,
+            "skip_download": True,
+            "noprogress": True,
+            "no_warnings": True,
+            # Loose format spec so format-resolution failures don't tank meta lookup.
+            "format": "bestaudio/best",
+            "ignore_no_formats_error": True,
         }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False) or {}
+            return {
+                "title": info.get("title"),
+                "duration_seconds": info.get("duration"),
+                "channel": info.get("uploader") or info.get("channel"),
+                "video_id": info.get("id") or extract_video_id(url),
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("yt-dlp meta fetch failed (continuing without): %s", exc)
+            return {
+                "title": None,
+                "duration_seconds": None,
+                "channel": None,
+                "video_id": extract_video_id(url),
+            }
 
     return await asyncio.to_thread(_run)
 
 
 def _captions_text(video_id: str, langs: list[str]) -> tuple[str, str] | None:
+    """Returns (text, language_code) or None.
+
+    youtube-transcript-api 1.x uses an instance API (api.list) and returns
+    FetchedTranscript whose snippets have attribute access (.text/.start/.duration)
+    instead of the dict-style chunks the 0.6.x line returned.
+    """
     try:
-        transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+        api = YouTubeTranscriptApi()
+        transcripts = api.list(video_id)
     except (TranscriptsDisabled, NoTranscriptFound, VideoUnavailable):
         return None
     except Exception:
@@ -73,13 +101,21 @@ def _captions_text(video_id: str, langs: list[str]) -> tuple[str, str] | None:
             return None
 
     try:
-        chunks = chosen.fetch()
+        fetched = chosen.fetch()
     except Exception:
         logger.exception("captions fetch failed")
         return None
 
-    text = " ".join(c.get("text", "").strip() for c in chunks if c.get("text"))
-    return text.strip(), chosen_lang or "unknown"
+    # FetchedTranscript is iterable of FetchedTranscriptSnippet (attr access).
+    # Stay tolerant of either snippet style in case of future bumps.
+    parts: list[str] = []
+    for snippet in fetched:
+        text = getattr(snippet, "text", None)
+        if text is None and isinstance(snippet, dict):
+            text = snippet.get("text")
+        if text:
+            parts.append(text.strip())
+    return " ".join(parts).strip(), chosen_lang or "unknown"
 
 
 async def _download_audio(url: str) -> Path:

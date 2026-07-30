@@ -153,7 +153,7 @@ async def update_post(
 @router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(
     post_id: uuid.UUID, current: CurrentUser, db: DbSession
-) -> None:
+):
     obj = await _owned(db, post_id, current.organization_id)
     await db.delete(obj)
 
@@ -315,7 +315,10 @@ async def schedule_from_node(
             parent = await db.scalar(select(Node).where(Node.id == edge.source_node_id))
             if parent is not None and parent.type == "extract":
                 tps = (parent.data or {}).get("talking_points") or []
-                idx = (parent.data or {}).get("selected_index")
+                # Prefer per-edge tezis_index (multi-fanout from one extract);
+                # fall back to parent's selected_index for legacy edges.
+                edge_idx = (edge.data or {}).get("tezis_index")
+                idx = edge_idx if isinstance(edge_idx, int) else (parent.data or {}).get("selected_index")
                 if isinstance(idx, int) and 0 <= idx < len(tps):
                     talking_point_text = tps[idx].get("text")
 

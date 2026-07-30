@@ -18,6 +18,8 @@ class ProjectOut(BaseModel):
     name: str
     color: str
     context: dict[str, Any]
+    # Visual rendering preferences — see `app/models/knowledge.Project`.
+    brand_visual: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 
@@ -26,12 +28,17 @@ class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     color: str = "#6366f1"
     context: dict[str, Any] = Field(default_factory=dict)
+    brand_visual: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProjectUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     color: str | None = None
     context: dict[str, Any] | None = None
+    # Send only the fields you want to change — the API merges shallowly
+    # with the existing JSONB doc so the frontend doesn't have to round-trip
+    # the whole BrandVisual just to flip `show_numbering`.
+    brand_visual: dict[str, Any] | None = None
 
 
 class BrandContextOut(BaseModel):

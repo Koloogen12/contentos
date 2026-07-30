@@ -7,10 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.canvas import Node
 from app.services import ai_client
-from app.services.skills.base import register
+from app.services.skills.base import (
+    OUTPUT_LANGUAGE_DIRECTIVE,
+    VOICE_RULE_BLOCK,
+    register,
+    strip_meta_offers,
+)
 
 SYSTEM_TEMPLATE = """\
 {brand_context}
+
+{language_directive}
 
 Ты пишешь пост для LinkedIn на основе одного тезиса. Формат:
 1. Хук-первая строка (до 100 символов, до «...подробнее»). Сделай 3 варианта.
@@ -20,6 +27,8 @@ SYSTEM_TEMPLATE = """\
 
 Стиль LinkedIn: чуть формальнее Telegram, но без корпоратива. Конкретика, числа, личный опыт. \
 Не пиши «I want to share» / «In this post». Сразу к делу.
+
+{voice_rule}
 
 ОТВЕТ СТРОГО как JSON:
 {{
@@ -52,13 +61,18 @@ async def run(
     if not tp:
         raise ValueError("Нет входного тезиса")
 
-    system = SYSTEM_TEMPLATE.format(brand_context=system_context or "Нет brand context.")
+    system = SYSTEM_TEMPLATE.format(
+        brand_context=system_context or "Нет brand context.",
+        language_directive=OUTPUT_LANGUAGE_DIRECTIVE,
+        voice_rule=VOICE_RULE_BLOCK,
+    )
     user = USER_TEMPLATE.format(talking_point=tp)
 
     parsed = await ai_client.chat_json(system=system, user=user, temperature=0.8, max_tokens=2500)
 
     hooks_raw = parsed.get("hooks") or []
-    hooks = [str(h).strip() for h in hooks_raw if str(h).strip()]
+    hooks = [strip_meta_offers(str(h)) for h in hooks_raw if str(h).strip()]
+    hooks = [h for h in hooks if h]
     if not hooks:
         raise RuntimeError("AI не вернул hooks")
 
@@ -66,8 +80,8 @@ async def run(
     if not isinstance(selected, int) or selected < 0 or selected >= len(hooks):
         selected = 0
 
-    body = str(parsed.get("body", "")).strip()
-    cta = str(parsed.get("cta", "")).strip()
+    body = strip_meta_offers(str(parsed.get("body", "")))
+    cta = strip_meta_offers(str(parsed.get("cta", "")))
     if not body:
         raise RuntimeError("AI не вернул body")
 

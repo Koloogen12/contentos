@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.canvas import Node
 from app.services import ai_client
-from app.services.skills.base import register
+from app.services.skills.base import MACHINE_TELLS_BLOCK, register
 
 # === Extract tweaks ===============================================
 
@@ -72,6 +72,68 @@ _FORMAT_REHOOK = """\
 Ответ строго JSON: {{"hooks": ["...", "...", "..."]}}
 """
 
+# Carousel rehook = переписать слайд-обложку (slide[0], is_cover). Для IG
+# карусели именно обложка — главный hook (то что видно в ленте до клика).
+_FORMAT_REHOOK_CAROUSEL = """\
+{brand_context}
+
+У готовой карусели нужно сменить ТОЛЬКО обложку (первый слайд). Остальные \
+слайды и подпись (caption) трогать нельзя. Дай 3 разных варианта обложки \
+(title до 60 символов + body — короткий подзаголовок про «что внутри / \
+для кого / листай →»). Отбирай по интриге, остановке скролла, обещанию \
+конкретной пользы.
+
+Ответ строго JSON:
+{{"cover_variants": [{{"title": "...", "body": "..."}}, {{"title": "...", "body": "..."}}, {{"title": "...", "body": "..."}}]}}
+"""
+
+# Reels rehook — пересоздать 3 hook-варианта первой секунды (0–3 сек).
+_FORMAT_REHOOK_REELS = """\
+{brand_context}
+
+У готового сценария рилса остаются beats и CTA. Дай 3 новых HOOK-варианта \
+для первых 0–3 секунд — короткие (до 10 слов), которые остановят скролл \
+сразу. Beats и caption не трогай.
+
+Ответ строго JSON: {{"hooks": ["...", "...", "..."]}}
+"""
+
+# Twitter rehook — первый твит = hook (в single OR thread). Перегенерируем
+# его в 3 вариантах, остальные tweets[] остаются.
+_FORMAT_REHOOK_TWITTER = """\
+{brand_context}
+
+У готового X/Twitter поста (single или начало треда) пересоздай ТОЛЬКО \
+первый твит — три новых варианта. Каждый ≤ 280 символов, без хэштегов, \
+без эмодзи. Остальные твиты (если тред) не трогай.
+
+Ответ строго JSON: {{"hooks": ["вариант 1", "вариант 2", "вариант 3"]}}
+"""
+
+# Article rehook — у статьи есть отдельные `hook` (одно предложение перед
+# intro) и `title`. Перегенерируем оба.
+_FORMAT_REHOOK_ARTICLE = """\
+{brand_context}
+
+У готовой статьи пересоздай заголовок и hook (первая строка под title), \
+сохрани intro / sections / conclusion / cta / meta как есть. Заголовок \
+до 70 символов, hook до 110 символов.
+
+Ответ строго JSON: {{"title": "...", "hook": "..."}}
+"""
+
+# Hooks-bank это сам банк хуков — rehook = переотбор N новых хуков.
+_FORMAT_REHOOK_HOOKS_BANK = """\
+{brand_context}
+
+У тебя был банк хуков для этого тезиса. Перегенерируй ВЕСЬ банк — 5–10 \
+НОВЫХ хуков, других чем были. Сохрани разнообразие триггеров (paradox / \
+number / contrast / provocation / story / dissonance / question).
+
+Ответ строго JSON:
+{{"hooks_bank": [{{"text": "...", "trigger": "..."}}, ...]}}
+"""
+
 _FORMAT_SHORTEN = """\
 {brand_context}
 
@@ -87,6 +149,41 @@ _FORMAT_AMPLIFY_VOICE = """\
 Перепиши тот же body, усиливая голос автора: чаще короткие фразы, \
 больше характерных оборотов из voice_traits / recurring_phrases / \
 brand_voice. Не добавляй новых аргументов — только подгони регистр.
+
+Ответ строго JSON: {{"body": "..."}}
+"""
+
+_FORMAT_EDIT = """\
+{brand_context}
+
+Отредактируй body по методу «сначала смысл, потом слова». Проходы идут \
+последовательно, от крупного к мелкому — не начинай чинить слова, пока не \
+проверил смысл.
+
+1. Смысл. Голословные утверждения, оценки вместо фактов, неопределённость \
+   («многие», «всё больше»). Ничего не выдумывай: если фактуры не хватает, \
+   формулировку смягчи или убери, но не добирай правдоподобной выдумкой.
+2. Тональность. Никаких «вы должны» и нравоучений. Читатель не дурак \
+   и не лентяй.
+3. Предложение. Люди и действия вместо явлений и процессов. Причастия \
+   и деепричастия переформулируй. Не больше двух-трёх сущностей на \
+   предложение. Страдательный залог — в активный.
+4. Слово. Канцелярит, штампы, заумь, усилители. Проверка: если слово \
+   нельзя сказать вслух за чаем — выкидывай.
+5. Ритм. Перечитай про себя. После сокращений предложения становятся \
+   одинаково рублеными — чередуй длину.
+6. Приметы машины. Обязательный финальный проход по блоку выше.
+
+ЧЕГО НЕ ДЕЛАТЬ:
+- Не менять смысл. Правка усиливает текст автора, а не заменяет его \
+  текстом редактора.
+- Не пересушивать. Цель не самый короткий текст, а самый полезный. \
+  Мусор убирать, детали, примеры и живость — нет.
+- Не выдумывать факты, цифры и примеры.
+
+Хуки и CTA не трогай — их правят отдельными режимами.
+
+{machine_tells}
 
 Ответ строго JSON: {{"body": "..."}}
 """
@@ -202,28 +299,26 @@ async def run(
             return await primary_fn(db, node, system_context, {"talking_point": tp, "platform": platform})
 
         if mode == "rehook":
-            system = _FORMAT_REHOOK.format(brand_context=brand)
-            user = f"ТЕЗИС: {tp}\n\nТЕКУЩИЙ BODY: {current.get('body', '')[:2000]}"
-            parsed = await ai_client.chat_json(
-                system=system, user=user, temperature=0.9, max_tokens=800
+            return await _rehook_by_platform(
+                platform=platform,
+                tp=tp,
+                brand=brand,
+                current=current,
+                new_data=new_data,
             )
-            hooks = [str(h).strip() for h in (parsed.get("hooks") or []) if str(h).strip()]
-            if not hooks:
-                raise RuntimeError("AI не вернул hooks")
-            new_data["hooks"] = hooks
-            new_data["selected_hook_index"] = 0
-            new_data["full_text"] = _assemble_full_text(
-                hooks[0], current.get("body", ""), current.get("cta", "")
-            )
-            return {"node_data": new_data, "meta": {"mode": mode, "hooks_count": len(hooks)}}
 
         if mode in ("shorten", "amplify_voice", "platform_optimize"):
             system_map = {
                 "shorten": _FORMAT_SHORTEN,
                 "amplify_voice": _FORMAT_AMPLIFY_VOICE,
                 "platform_optimize": _FORMAT_PLATFORM,
+                "edit": _FORMAT_EDIT,
             }
-            system = system_map[mode].format(brand_context=brand)
+            # machine_tells нужен только режиму «Редактура»; остальным
+            # промптам лишний kwarg безвреден — str.format его игнорирует.
+            system = system_map[mode].format(
+                brand_context=brand, machine_tells=MACHINE_TELLS_BLOCK
+            )
             user = f"ТЕЗИС: {tp}\nПЛАТФОРМА: {platform}\n\nТЕКУЩИЙ BODY: {current.get('body', '')[:3000]}"
             parsed = await ai_client.chat_json(
                 system=system, user=user, temperature=0.7, max_tokens=2000
@@ -245,3 +340,190 @@ async def run(
 
 def _assemble_full_text(hook: str, body: str, cta: str) -> str:
     return "\n\n".join(p.strip() for p in (hook, body, cta) if p and p.strip())
+
+
+async def _rehook_by_platform(
+    *,
+    platform: str,
+    tp: str,
+    brand: str,
+    current: dict[str, Any],
+    new_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Platform-aware rehook.
+
+    Each format has a different "hook surface":
+      - telegram / linkedin / instagram → hooks[] (radio in PostBody)
+      - carousel → slides[0] (cover slide — that's the real IG hook)
+      - reels → hooks[] (0–3 sec opener)
+      - twitter → tweets[0] (head of thread or the whole single tweet)
+      - article → title + hook (one-liner under title)
+      - hooks (the hooks-bank format itself) → hooks_bank[] (regen the bank)
+
+    We branch here so the user's click on "Другой хук" actually changes the
+    visible surface for their platform, instead of writing into a field
+    the UI doesn't render (the carousel bug that triggered this fix).
+    """
+    if platform == "carousel":
+        system = _FORMAT_REHOOK_CAROUSEL.format(brand_context=brand)
+        user = (
+            f"ТЕЗИС: {tp}\n\n"
+            f"ТЕКУЩАЯ ОБЛОЖКА:\n"
+            f"title: {(current.get('slides') or [{}])[0].get('title', '') if current.get('slides') else ''}\n"
+            f"body: {(current.get('slides') or [{}])[0].get('body', '') if current.get('slides') else ''}"
+        )
+        parsed = await ai_client.chat_json(
+            system=system, user=user, temperature=0.9, max_tokens=1200
+        )
+        variants = parsed.get("cover_variants") or []
+        clean = []
+        for v in variants:
+            if not isinstance(v, dict):
+                continue
+            t = str(v.get("title", "")).strip()
+            b = str(v.get("body", "")).strip()
+            if t:
+                clean.append({"title": t, "body": b, "is_cover": True})
+        if not clean:
+            raise RuntimeError("AI не вернул варианты обложки")
+        # Apply the first variant; stash the rest in meta so a future
+        # "Другой вариант" button can rotate through them without an extra
+        # AI call. We treat slides[0] as the cover and replace it.
+        slides = list(current.get("slides") or [])
+        chosen = clean[0]
+        if slides:
+            slides[0] = chosen
+        else:
+            slides = [chosen]
+        new_data["slides"] = slides
+        new_data["cover_variants"] = clean  # 3 alternatives surface in UI
+        # Re-assemble full_text the same way carousel_creator does it.
+        from app.services.skills.carousel_creator import _flatten
+        full = _flatten(slides)
+        summary = current.get("summary", "")
+        cta = current.get("cta", "")
+        kw = current.get("comment_keyword")
+        parts = [full]
+        if summary:
+            parts.append(f"--- caption ---\n{summary}")
+        if cta:
+            parts.append(cta)
+        if kw:
+            parts.append(f'Напиши в комментариях «{kw}» — пришлю в Direct.')
+        new_data["full_text"] = "\n\n".join(p for p in parts if p)
+        return {"node_data": new_data, "meta": {"mode": "rehook", "variants": len(clean)}}
+
+    if platform == "reels":
+        system = _FORMAT_REHOOK_REELS.format(brand_context=brand)
+        user = f"ТЕЗИС: {tp}\n\nТЕКУЩИЕ BEATS: {len(current.get('beats') or [])} штук"
+        parsed = await ai_client.chat_json(
+            system=system, user=user, temperature=0.9, max_tokens=800
+        )
+        hooks = [str(h).strip() for h in (parsed.get("hooks") or []) if str(h).strip()]
+        if not hooks:
+            raise RuntimeError("AI не вернул hooks")
+        new_data["hooks"] = hooks
+        new_data["selected_hook_index"] = 0
+        # full_text for reels uses the assembly from reels_script_writer
+        from app.services.skills.reels_script_writer import _format_full_text
+        new_data["full_text"] = _format_full_text(
+            hooks[0],
+            current.get("beats") or [],
+            current.get("cta", ""),
+            current.get("caption", ""),
+        )
+        return {"node_data": new_data, "meta": {"mode": "rehook", "hooks_count": len(hooks)}}
+
+    if platform == "twitter":
+        system = _FORMAT_REHOOK_TWITTER.format(brand_context=brand)
+        user = (
+            f"ТЕЗИС: {tp}\n\nТЕКУЩИЙ ПЕРВЫЙ ТВИТ: "
+            f"{(current.get('tweets') or [''])[0][:300]}"
+        )
+        parsed = await ai_client.chat_json(
+            system=system, user=user, temperature=0.9, max_tokens=800
+        )
+        variants = [
+            str(h).strip() for h in (parsed.get("hooks") or []) if str(h).strip()
+        ]
+        if not variants:
+            raise RuntimeError("AI не вернул варианты")
+        tweets = list(current.get("tweets") or [])
+        if tweets:
+            tweets[0] = variants[0]
+        else:
+            tweets = [variants[0]]
+        new_data["tweets"] = tweets
+        new_data["hook"] = variants[0]
+        # Stash the alts so user can cycle.
+        new_data["hooks"] = variants
+        new_data["selected_hook_index"] = 0
+        new_data["full_text"] = "\n\n".join(t for t in tweets if t.strip())
+        return {"node_data": new_data, "meta": {"mode": "rehook", "variants": len(variants)}}
+
+    if platform == "article":
+        system = _FORMAT_REHOOK_ARTICLE.format(brand_context=brand)
+        user = (
+            f"ТЕЗИС: {tp}\n\n"
+            f"ТЕКУЩИЙ TITLE: {current.get('title', '')[:200]}\n"
+            f"ТЕКУЩИЙ HOOK: {current.get('hook', '')[:200]}"
+        )
+        parsed = await ai_client.chat_json(
+            system=system, user=user, temperature=0.85, max_tokens=600
+        )
+        new_title = str(parsed.get("title", "")).strip()
+        new_hook = str(parsed.get("hook", "")).strip()
+        if not (new_title or new_hook):
+            raise RuntimeError("AI не вернул title/hook")
+        if new_title:
+            new_data["title"] = new_title
+        if new_hook:
+            new_data["hook"] = new_hook
+        # Reassemble article markdown via the same helper as article_creator
+        from app.services.skills.article_creator import _assemble_markdown
+        new_data["full_text"] = _assemble_markdown(new_data)
+        return {"node_data": new_data, "meta": {"mode": "rehook"}}
+
+    if platform == "hooks":
+        system = _FORMAT_REHOOK_HOOKS_BANK.format(brand_context=brand)
+        user = f"ТЕЗИС: {tp}"
+        parsed = await ai_client.chat_json(
+            system=system, user=user, temperature=0.9, max_tokens=1500
+        )
+        raw = parsed.get("hooks_bank") or parsed.get("hooks") or []
+        bank: list[dict[str, str]] = []
+        for h in raw:
+            if isinstance(h, dict):
+                text = str(h.get("text", "")).strip()
+                if text:
+                    bank.append(
+                        {
+                            "text": text,
+                            "trigger": str(h.get("trigger", "")).strip() or "other",
+                        }
+                    )
+            elif isinstance(h, str) and h.strip():
+                bank.append({"text": h.strip(), "trigger": "other"})
+        if not bank:
+            raise RuntimeError("AI не вернул банк хуков")
+        new_data["hooks_bank"] = bank
+        new_data["full_text"] = "\n\n".join(
+            f"{i + 1}. {b['text']} ({b['trigger']})" for i, b in enumerate(bank)
+        )
+        return {"node_data": new_data, "meta": {"mode": "rehook", "count": len(bank)}}
+
+    # Default: telegram / linkedin / instagram → hooks[] + assemble post.
+    system = _FORMAT_REHOOK.format(brand_context=brand)
+    user = f"ТЕЗИС: {tp}\n\nТЕКУЩИЙ BODY: {current.get('body', '')[:2000]}"
+    parsed = await ai_client.chat_json(
+        system=system, user=user, temperature=0.9, max_tokens=800
+    )
+    hooks = [str(h).strip() for h in (parsed.get("hooks") or []) if str(h).strip()]
+    if not hooks:
+        raise RuntimeError("AI не вернул hooks")
+    new_data["hooks"] = hooks
+    new_data["selected_hook_index"] = 0
+    new_data["full_text"] = _assemble_full_text(
+        hooks[0], current.get("body", ""), current.get("cta", "")
+    )
+    return {"node_data": new_data, "meta": {"mode": "rehook", "hooks_count": len(hooks)}}

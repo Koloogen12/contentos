@@ -42,6 +42,10 @@ class TelegramTarget(Base, TimestampMixin):
     chat_id: Mapped[str] = mapped_column(String(64), nullable=False)
     bot_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_default: Mapped[bool] = mapped_column(default=False, nullable=False)
+    # Optional public channel handle (without @) used by the metrics
+    # scraper. Empty/None when the channel is private — metrics auto-pull
+    # silently skips those. See migration 0007_telegram_metrics.
+    public_handle: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class PublishLog(Base):
@@ -68,6 +72,11 @@ class PublishLog(Base):
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     response: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Latest fetched stats from the public t.me web view. Updated by the
+    # `pull_telegram_metrics_one` Arq task (cron every 6h). Shape:
+    #   {views, forwards, reactions: {emoji: count, ...}, fetched_at, source}
+    # NULL = not yet fetched (or target has no public_handle).
+    metrics: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

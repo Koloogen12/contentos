@@ -60,6 +60,6 @@ async def update_node(
 
 
 @router.delete("/nodes/{node_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_node(node_id: uuid.UUID, current: CurrentUser, db: DbSession) -> None:
+async def delete_node(node_id: uuid.UUID, current: CurrentUser, db: DbSession):
     node = await _get_owned_node(db, node_id, current.organization_id)
     await db.delete(node)

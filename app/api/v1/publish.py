@@ -82,3 +82,103 @@ async def get_publish_log(
     if log is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "PublishLog not found")
     return PublishLogOut.model_validate(log)
+
+
+@router.get("/nodes/{node_id}/publish-logs", response_model=list[PublishLogOut])
+async def list_node_publish_logs(
+    node_id: uuid.UUID,
+    current: CurrentUser,
+    db: DbSession,
+) -> list[PublishLogOut]:
+    """All publish attempts for this node, newest-first.
+
+    Used by the FormatNode to render the metrics chip (views + reactions)
+    next to the publish action. We return every publish_log (sent/failed/
+    pending) so the UI can show "Failed" badges too — filtering to status
+    happens client-side.
+    """
+    rows = await db.scalars(
+        select(PublishLog)
+        .join(Node, Node.id == PublishLog.node_id)
+        .join(Canvas, Canvas.id == Node.canvas_id)
+        .where(
+            PublishLog.node_id == node_id,
+            Canvas.organization_id == current.organization_id,
+        )
+        .order_by(PublishLog.created_at.desc())
+    )
+    return [PublishLogOut.model_validate(r) for r in rows.all()]
+
+
+@router.post(
+    "/publish-logs/{publish_log_id}/refresh-metrics",
+    response_model=PublishLogOut,
+)
+async def refresh_publish_log_metrics(
+    publish_log_id: uuid.UUID,
+    current: CurrentUser,
+    db: DbSession,
+) -> PublishLogOut:
+    """Synchronously refresh metrics for one publish_log.
+
+    The cron-driven `pull_telegram_metrics_all` sweep keeps metrics fresh
+    on a 6h cadence; this endpoint lets the user pull a single post on
+    demand (e.g. "I just posted — what's the count now?"). Runs in the
+    request handler rather than the worker because the fetch is a single
+    HTTP call to t.me — ~500ms typical, no reason to queue it.
+    """
+    log = await db.scalar(
+        select(PublishLog)
+        .join(Node, Node.id == PublishLog.node_id)
+        .join(Canvas, Canvas.id == Node.canvas_id)
+        .where(
+            PublishLog.id == publish_log_id,
+            Canvas.organization_id == current.organization_id,
+        )
+    )
+    if log is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "PublishLog not found")
+    if log.status != "sent":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Метрики доступны только для отправленных постов (текущий статус: {log.status})",
+        )
+
+    msg_id = (log.response or {}).get("message_id")
+    if not isinstance(msg_id, int):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "В response отсутствует message_id — невозможно построить URL для t.me",
+        )
+
+    target = await db.scalar(
+        select(TelegramTarget).where(TelegramTarget.id == log.target_id)
+    )
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Target deleted")
+
+    from app.services import telegram_metrics
+
+    handle = telegram_metrics.derive_handle(
+        chat_id=target.chat_id,
+        public_handle=target.public_handle,
+    )
+    if not handle:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "У этого канала нет публичного handle — добавь его в настройках цели",
+        )
+
+    metrics = await telegram_metrics.fetch_post_metrics(
+        channel=handle,
+        message_id=msg_id,
+    )
+    if metrics is None:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "Не удалось получить метрики поста (пост удалён, t.me недоступен или embed заблокирован)",
+        )
+
+    log.metrics = metrics
+    await db.flush()
+    return PublishLogOut.model_validate(log)

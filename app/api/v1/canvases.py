@@ -108,7 +108,7 @@ async def update_canvas(
 
 
 @router.delete("/{canvas_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_canvas(canvas_id: uuid.UUID, current: CurrentUser, db: DbSession) -> None:
+async def delete_canvas(canvas_id: uuid.UUID, current: CurrentUser, db: DbSession):
     canvas = await _get_owned_canvas(db, canvas_id, current.organization_id)
     await db.delete(canvas)
 

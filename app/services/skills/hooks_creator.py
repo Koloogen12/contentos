@@ -7,10 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.canvas import Node
 from app.services import ai_client
-from app.services.skills.base import register
+from app.services.skills.base import (
+    OUTPUT_LANGUAGE_DIRECTIVE,
+    VOICE_RULE_BLOCK,
+    register,
+    strip_meta_offers,
+)
 
 SYSTEM_TEMPLATE = """\
 {brand_context}
+
+{language_directive}
 
 Ты создаёшь банк из 5–10 разных хуков (первых строк) на основе одного тезиса. Каждый хук:
 - Самодостаточный — работает БЕЗ контекста, без «прочитайте дальше».
@@ -18,6 +25,8 @@ SYSTEM_TEMPLATE = """\
 - Использует разные психологические триггеры: парадокс, конкретное число, контраст «было/стало», провокация, личная история, диссонанс, вопрос.
 
 Тегируй каждый хук типом триггера.
+
+{voice_rule}
 
 ОТВЕТ СТРОГО как JSON:
 {{
@@ -45,7 +54,11 @@ async def run(
     if not tp:
         raise ValueError("Нет входного тезиса")
 
-    system = SYSTEM_TEMPLATE.format(brand_context=system_context or "Нет brand context.")
+    system = SYSTEM_TEMPLATE.format(
+        brand_context=system_context or "Нет brand context.",
+        language_directive=OUTPUT_LANGUAGE_DIRECTIVE,
+        voice_rule=VOICE_RULE_BLOCK,
+    )
     user = USER_TEMPLATE.format(talking_point=tp)
 
     parsed = await ai_client.chat_json(system=system, user=user, temperature=0.9, max_tokens=1500)
@@ -55,7 +68,7 @@ async def run(
     for h in hooks_raw:
         if not isinstance(h, dict):
             continue
-        text = str(h.get("text", "")).strip()
+        text = strip_meta_offers(str(h.get("text", "")))
         if not text:
             continue
         hooks.append(

@@ -34,6 +34,10 @@ services:
       CORS_ORIGINS: ${PUBLIC_URL_FRONT}
       MAX_UPLOAD_SIZE_MB: "500"
       TEMP_DIR: /tmp/contentos
+      # Without this Python buffers stdout/stderr inside the container so
+      # uvicorn access logs (and any logger.* calls) only flush when the
+      # buffer fills — making `docker logs api` look empty in production.
+      PYTHONUNBUFFERED: "1"
     network_mode: host
     volumes:
       - media-cache:/tmp/contentos
@@ -53,10 +57,26 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@127.0.0.1:6379/5
       APP_ENV: production
       APP_DEBUG: "false"
+      # See note in api service — without this `docker logs worker` is empty
+      # because arq's worker output sits in Python's stdout buffer forever.
+      PYTHONUNBUFFERED: "1"
     network_mode: host
     volumes:
       - media-cache:/tmp/contentos
-    command: ["arq", "app.workers.queue.WorkerSettings"]
+    # arq 0.26.3 + uvloop trips on `asyncio.get_event_loop()` in main thread
+    # on Python 3.11+. Bypass arq's CLI entirely and run the Worker inside
+    # an `asyncio.run()` so get_event_loop() finds the running loop.
+    command:
+      - python
+      - -c
+      - |
+        import asyncio
+        async def main():
+            from app.workers.queue import WorkerSettings
+            from arq.worker import create_worker
+            worker = create_worker(WorkerSettings)
+            await worker.async_run()
+        asyncio.run(main())
     restart: unless-stopped
     depends_on:
       - api

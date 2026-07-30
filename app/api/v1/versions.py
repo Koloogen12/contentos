@@ -201,7 +201,7 @@ async def delete_version(
     version_id: uuid.UUID,
     current: CurrentUser,
     db: DbSession,
-) -> None:
+):
     await _owned_canvas(db, canvas_id, current.organization_id)
     v = await db.scalar(
         select(CanvasVersion).where(

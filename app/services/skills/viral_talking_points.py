@@ -7,14 +7,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.canvas import Node
 from app.services import ai_client
-from app.services.skills.base import register
+from app.services.skills.base import OUTPUT_LANGUAGE_DIRECTIVE, register
 
 SYSTEM_TEMPLATE = """\
 {brand_context}
 
-Ты — редактор-аналитик. Из исходного материала извлеки 5–10 «молекулярных тезисов» — \
-по одной мысли, каждый самодостаточный, без воды. Под каждый тезис посчитай вирусный \
-скор по 4 осям (1–5 каждая):
+{language_directive}
+
+Ты — редактор-аналитик. Из исходного материала извлеки 15–40 «молекулярных тезисов» — \
+по одной мысли, каждый самодостаточный, без воды. Сколько именно — зависит от насыщенности \
+материала: короткий пост → 5–10, статья среднего размера → 12–20, длинный подкаст / лонгрид / \
+полуторачасовое интервью → 25–40. Не ленись — даже из насыщенных источников плохо извлекать \
+меньше 25 тезисов, это значит ты не докопал. Под каждый тезис посчитай вирусный скор по \
+4 осям (1–5 каждая):
 
 1. audience_fit — попадание в боль/желание целевой аудитории автора
 2. engagement_trigger — есть ли крючок: спор, парадокс, конкретика, эмоция
@@ -24,12 +29,11 @@ SYSTEM_TEMPLATE = """\
 Итоговый viral_score = сумма (4–20).
 
 ДОПОЛНИТЕЛЬНО для каждого тезиса:
-- pillar — к какому столбу контента ближе (R1/R2/R3/R4):
-  * R1 — Как создавать продукт (JTBD, MVP, AI-инструменты)
-  * R2 — Психология фаундера (страхи, состояние, знать ≠ делать)
-  * R3 — Реалити «Путь к $1M MRR» (THE MONO, NEURIN AI, MakeMeLook)
-  * R4 — Разборы венчурных сделок и рынка
-  Если не подходит ни один — оставь pillar = null.
+- pillar — к какому столбу контента автора ближе. Столбы автора (R1, R2, R3, R4) \
+  описаны в blocком brand_context ВЫШЕ. Используй ИХ описание, а не свои \
+  представления. Если в brand_context столбы пустые / не заданы — оставь \
+  pillar = null. НЕ ВЫДУМЫВАЙ столбы из своих представлений о фаундерстве / \
+  продуктах / любых других нишах — это не твоё дело, это конфиг автора.
 
 ОТВЕТ ВЕРНИ СТРОГО как JSON:
 {{
@@ -64,14 +68,23 @@ async def run(
     if not content.strip():
         raise ValueError("Источник пустой")
 
-    system = SYSTEM_TEMPLATE.format(brand_context=system_context or "Нет brand context.")
-    user = USER_TEMPLATE.format(content=content[:8000])
+    system = SYSTEM_TEMPLATE.format(
+        brand_context=system_context or "Нет brand context.",
+        language_directive=OUTPUT_LANGUAGE_DIRECTIVE,
+    )
+    # Up source-content cap to 24K — a 1.5h podcast transcript runs
+    # ~15-20K chars, and clipping to 8K threw away the latter half
+    # where the densest insights often live.
+    user = USER_TEMPLATE.format(content=content[:24000])
 
     parsed = await ai_client.chat_json(
         system=system,
         user=user,
         temperature=0.7,
-        max_tokens=4000,
+        # Headroom for 40 points × (text + 4-axis breakdown + reasoning + pillar)
+        # ~700 tokens each in Russian = ~28K. We give 32K to leave room
+        # for the wrapper schema. Old 8K truncated at ~10 tezisов.
+        max_tokens=32000,
     )
     points = parsed.get("talking_points") or []
     if not isinstance(points, list) or not points:

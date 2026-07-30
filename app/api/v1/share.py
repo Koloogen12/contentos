@@ -77,7 +77,7 @@ async def list_share_tokens(
 )
 async def revoke_share_token(
     token_id: uuid.UUID, current: CurrentUser, db: DbSession
-) -> None:
+):
     obj = await db.scalar(
         select(CanvasShareToken)
         .join(Canvas, Canvas.id == CanvasShareToken.canvas_id)

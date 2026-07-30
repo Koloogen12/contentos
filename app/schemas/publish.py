@@ -15,6 +15,7 @@ class TelegramTargetOut(BaseModel):
     title: str
     chat_id: str
     is_default: bool
+    public_handle: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -24,6 +25,9 @@ class TelegramTargetCreate(BaseModel):
     chat_id: str = Field(min_length=1, max_length=64)
     bot_token: str | None = None
     is_default: bool = False
+    # Optional explicit public handle (without @). When omitted, the metrics
+    # scraper derives it from `chat_id` only if `chat_id` starts with '@'.
+    public_handle: str | None = Field(default=None, max_length=64)
 
 
 class TelegramTargetUpdate(BaseModel):
@@ -31,6 +35,7 @@ class TelegramTargetUpdate(BaseModel):
     chat_id: str | None = Field(default=None, min_length=1, max_length=64)
     bot_token: str | None = None
     is_default: bool | None = None
+    public_handle: str | None = Field(default=None, max_length=64)
 
 
 class PublishStart(BaseModel):
@@ -51,6 +56,7 @@ class PublishLogOut(BaseModel):
     status: PublishStatusT
     text: str
     response: dict[str, Any] | None
+    metrics: dict[str, Any] | None = None
     error: str | None
     created_at: datetime
     completed_at: datetime | None

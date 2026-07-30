@@ -84,7 +84,7 @@ class Node(Base, TimestampMixin):
     __tablename__ = "nodes"
     __table_args__ = (
         CheckConstraint(
-            "type IN ('source', 'extract', 'format')",
+            "type IN ('source', 'extract', 'format', 'llm')",
             name="ck_nodes_type",
         ),
         CheckConstraint(
@@ -143,6 +143,10 @@ class Edge(Base, TimestampMixin):
         ForeignKey("nodes.id", ondelete="CASCADE"),
         nullable=False,
     )
+    # Per-edge metadata. Used today for {"tezis_index": int} when the user
+    # spawns a format node from a specific talking point — so the format node
+    # uses *that* tezis instead of the extract node's `selected_index`.
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
 
     canvas: Mapped["Canvas"] = relationship(back_populates="edges")
 

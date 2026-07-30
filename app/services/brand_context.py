@@ -58,6 +58,13 @@ def _format_brand(data: dict[str, Any]) -> str:
         if isinstance(cta, list):
             cta = ", ".join(cta)
         parts.append(f"\nCTA-слова: {cta}")
+    # Content pillars (R1/R2/R3/R4 — or whatever the user named them).
+    # Critical so that viral_talking_points doesn't make up pillars from
+    # its own training data — see prompt comment in that skill.
+    if pillars := data.get("content_pillars"):
+        if isinstance(pillars, dict) and pillars:
+            lines = [f"- {k}: {v}" for k, v in pillars.items()]
+            parts.append("\nСТОЛБЫ КОНТЕНТА АВТОРА:\n" + "\n".join(lines))
     return "\n".join(parts).strip()
 
 
@@ -139,19 +146,40 @@ async def build_skill_context(
     return "\n\n".join(layers).strip()
 
 
+def _llm_last_reply(data: dict[str, Any]) -> str:
+    """The output of an llm node = its most recent assistant reply. Moving
+    target by design (each chat turn changes it); the node's port is labeled
+    to say so."""
+    msgs = data.get("messages") or []
+    for m in reversed(msgs):
+        if isinstance(m, dict) and m.get("role") == "assistant":
+            return (m.get("content") or "").strip()
+    return ""
+
+
 async def collect_input_for_skill(db: AsyncSession, node: Node) -> dict[str, Any]:
     """Walks the incoming edge and pulls the input data for a skill run.
 
     - extract: takes upstream source.content
-    - format:  takes upstream extract.talking_points[selected_index].text
-               (or upstream source.content if connected directly to a source)
+    - format:  takes upstream extract.talking_points[tezis_index].text
+               (where tezis_index comes from the edge.data when the user
+                spawned the format node from a specific tezis card; otherwise
+                falls back to the parent extract node's selected_index).
+               Or upstream source.content if connected directly to a source.
     """
     from app.models.canvas import Edge  # local to avoid a circular import at module load
 
     incoming = await db.scalar(
         select(Edge).where(Edge.target_node_id == node.id)
     )
+
+    # Story-arc extract is the one node-type that may legitimately run
+    # without an upstream — the arc config + big_topic live on the node
+    # itself. All other node types still require an incoming edge.
+    node_mode = (node.data or {}).get("extract_mode")
     if incoming is None:
+        if node.type == "extract" and node_mode == "story_arc":
+            return {"source_content": "", "parent_node_id": None}
         return {"error": "Нет входящей связи"}
 
     parent = await db.scalar(select(Node).where(Node.id == incoming.source_node_id))
@@ -159,23 +187,109 @@ async def collect_input_for_skill(db: AsyncSession, node: Node) -> dict[str, Any
         return {"error": "Источник не найден"}
 
     parent_data = parent.data or {}
+    edge_data = incoming.data or {}
 
     if node.type == "extract":
-        content = parent_data.get("content")
+        # story_arc mode can run without upstream content (the big_topic
+        # + config on the node itself is enough). Other modes still need
+        # source text.
+        mode = (node.data or {}).get("extract_mode", "talking_points")
+        # Upstream can be a source (content) OR an llm node (last reply).
+        if parent.type == "llm":
+            content = _llm_last_reply(parent_data)
+        else:
+            content = parent_data.get("content")
+        if mode == "story_arc":
+            return {
+                "source_content": content or "",
+                "parent_node_id": str(parent.id),
+            }
         if not content:
             return {"error": "У источника пустой content"}
         return {"source_content": content, "parent_node_id": str(parent.id)}
 
     if node.type == "format":
         if parent.type == "extract":
+            parent_mode = parent_data.get("extract_mode") or "talking_points"
+
+            # Summary-mode extract: the whole summary IS the talking point.
+            # No tezis index needed; per-edge override is ignored.
+            if parent_mode == "summary":
+                summary = (parent_data.get("summary") or "").strip()
+                if not summary:
+                    return {"error": "У источника пустое саммари"}
+                return {
+                    "talking_point": summary[:4000],
+                    "platform": (node.data or {}).get("platform", "telegram"),
+                    "parent_node_id": str(parent.id),
+                    "from_summary": True,
+                }
+
+            # Story-arc mode: pick the scene the user spawned this format
+            # node from. Edge.data.tezis_index doubles as "scene index"
+            # for fanout. Scene.talking_point is the body input; scene.hook
+            # gets passed as preset_hook for format-skills that want to
+            # reuse it (most just overwrite, which is fine).
+            if parent_mode == "story_arc":
+                scenes = parent_data.get("scenes") or []
+                idx = edge_data.get("tezis_index")
+                if not isinstance(idx, int):
+                    idx = parent_data.get("selected_index")
+                if idx is None or idx < 0 or idx >= len(scenes):
+                    return {"error": "Не выбрана сцена арки"}
+                scene = scenes[idx] or {}
+                return {
+                    "talking_point": str(scene.get("talking_point") or "").strip(),
+                    "platform": (node.data or {}).get(
+                        "platform", scene.get("platform") or "telegram"
+                    ),
+                    "preset_hook": str(scene.get("hook") or "").strip() or None,
+                    "scene_stage": scene.get("stage"),
+                    "scene_order": scene.get("order"),
+                    "parent_node_id": str(parent.id),
+                    "tezis_index": idx,
+                }
+            # Рецензия работает по всему материалу, а не по одному тезису:
+            # отдаём все извлечённые тезисы плюс исходный текст, до которого
+            # поднимаемся через родителя extract-ноды. Единственный формат,
+            # которому нужен весь вход целиком, — поэтому ветка здесь, а не
+            # в общем сборе.
+            if (node.data or {}).get("platform") == "review":
+                source_content = ""
+                grandparent_edge = await db.scalar(
+                    select(Edge).where(Edge.target_node_id == parent.id)
+                )
+                if grandparent_edge is not None:
+                    grandparent = await db.scalar(
+                        select(Node).where(Node.id == grandparent_edge.source_node_id)
+                    )
+                    if grandparent is not None:
+                        gp_data = grandparent.data or {}
+                        source_content = str(
+                            gp_data.get("content")
+                            or _llm_last_reply(gp_data)
+                            or ""
+                        )
+                return {
+                    "talking_points": parent_data.get("talking_points") or [],
+                    "source_content": source_content,
+                    "platform": "review",
+                    "parent_node_id": str(parent.id),
+                }
+
             tps = parent_data.get("talking_points") or []
-            idx = parent_data.get("selected_index")
+            # Prefer per-edge override (set when format node was spawned from
+            # a specific tezis card); fall back to the parent's selection.
+            idx = edge_data.get("tezis_index")
+            if not isinstance(idx, int):
+                idx = parent_data.get("selected_index")
             if idx is None or idx < 0 or idx >= len(tps):
                 return {"error": "Не выбран тезис в источнике"}
             return {
                 "talking_point": tps[idx].get("text", ""),
                 "platform": (node.data or {}).get("platform", "telegram"),
                 "parent_node_id": str(parent.id),
+                "tezis_index": idx,
             }
         if parent.type == "source":
             content = parent_data.get("content")
@@ -183,6 +297,15 @@ async def collect_input_for_skill(db: AsyncSession, node: Node) -> dict[str, Any
                 return {"error": "У источника пустой content"}
             return {
                 "talking_point": content[:2000],
+                "platform": (node.data or {}).get("platform", "telegram"),
+                "parent_node_id": str(parent.id),
+            }
+        if parent.type == "llm":
+            reply = _llm_last_reply(parent_data)
+            if not reply:
+                return {"error": "У LLM-ноды пока нет ответа для передачи"}
+            return {
+                "talking_point": reply[:2000],
                 "platform": (node.data or {}).get("platform", "telegram"),
                 "parent_node_id": str(parent.id),
             }

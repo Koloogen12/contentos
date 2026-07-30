@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-NodeTypeT = Literal["source", "extract", "format"]
+NodeTypeT = Literal["source", "extract", "format", "llm"]
 NodeStatusT = Literal["idle", "running", "done", "error"]
 
 
@@ -43,12 +43,20 @@ class EdgeOut(BaseModel):
     canvas_id: uuid.UUID
     source_node_id: uuid.UUID
     target_node_id: uuid.UUID
+    data: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
 
 class EdgeCreate(BaseModel):
     source_node_id: uuid.UUID
     target_node_id: uuid.UUID
+    # Optional per-edge metadata. Today we use it for {"tezis_index": int}
+    # when spawning a format node from a specific talking point card.
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class EdgeUpdate(BaseModel):
+    data: dict[str, Any] | None = None
 
 
 class CanvasOut(BaseModel):
@@ -105,6 +113,7 @@ def edge_to_out(edge) -> "EdgeOut":
         canvas_id=edge.canvas_id,
         source_node_id=edge.source_node_id,
         target_node_id=edge.target_node_id,
+        data=edge.data or {},
         created_at=edge.created_at,
     )
 

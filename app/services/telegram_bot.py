@@ -31,10 +31,45 @@ def _resolve_token(target: TelegramTarget) -> str:
 
 
 async def send_message(target: TelegramTarget, text: str) -> dict[str, Any]:
+    """Send a post to a Telegram channel/chat.
+
+    The text may contain Telegram-HTML tags (`<b>`, `<i>`, `<s>`,
+    `<tg-spoiler>`, `<blockquote>`, `<code>`). We send with
+    `parse_mode="HTML"` so they render as formatting; bare angle brackets
+    in user content must be escaped beforehand (the format-skill prompt
+    handles this — see telegram_creator.SYSTEM_TEMPLATE).
+
+    If parsing fails (rare — the skill controls the markup), we retry
+    once with `parse_mode=None` so the user at least gets the raw text
+    rather than a 400 "Bad Request: can't parse entities".
+    """
     token = _resolve_token(target)
-    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=None))
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode="HTML"))
     try:
-        msg = await bot.send_message(chat_id=target.chat_id, text=text, disable_web_page_preview=False)
+        try:
+            msg = await bot.send_message(
+                chat_id=target.chat_id,
+                text=text,
+                disable_web_page_preview=False,
+            )
+        except TelegramAPIError as exc:
+            err = str(exc).lower()
+            # Telegram's HTML parser errors look like "can't parse entities:
+            # ...". They're our format-skill's fault, not the user's — fall
+            # back to a plain-text send so the post still goes out. We log
+            # the original error so a real misformat surfaces in monitoring.
+            if "can't parse entities" in err or "can’t parse entities" in err:
+                logger.warning(
+                    "telegram html parse failed, retrying as plain: %s", exc
+                )
+                msg = await bot.send_message(
+                    chat_id=target.chat_id,
+                    text=text,
+                    disable_web_page_preview=False,
+                    parse_mode=None,
+                )
+            else:
+                raise
         return {
             "message_id": msg.message_id,
             "chat_id": msg.chat.id,

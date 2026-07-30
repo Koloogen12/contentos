@@ -45,7 +45,8 @@ ssh "${SSH_HOST}" "systemctl is-active mml-backend || (echo 'mml-backend is not 
 echo "2/6 Sync deploy artefacts to ${REMOTE_DIR}/deploy/..."
 ssh "${SSH_HOST}" "mkdir -p ${REMOTE_DIR}/deploy"
 scp -q "${SCRIPT_DIR}/server-init.sh" "${SCRIPT_DIR}/compose.prod.yml" \
-    "${SCRIPT_DIR}/nginx-contentos.conf" "${SCRIPT_DIR}/.env.prod.example" \
+    "${SCRIPT_DIR}/nginx-contentos.conf" "${SCRIPT_DIR}/nginx-contentos-ssl.conf" \
+    "${SCRIPT_DIR}/.env.prod.example" \
     "${SSH_HOST}:${REMOTE_DIR}/deploy/"
 
 # Ensure init has been run (creates DB, secrets, OS user). Idempotent.
@@ -92,33 +93,79 @@ cat .env /etc/contentos/secrets.env > "$TMP_ENV"
 docker compose -f compose.prod.yml --env-file "$TMP_ENV" build
 docker compose -f compose.prod.yml --env-file "$TMP_ENV" up -d
 docker compose -f compose.prod.yml --env-file "$TMP_ENV" ps
+
+# Wait for the new api container to actually answer before reporting success.
+# Otherwise the 30–60s window between `up -d` finishing and uvicorn binding the
+# port produces 502 Bad Gateway for any user request that lands in that window.
+echo "Waiting for api /health (max 60s)..."
+ok=0
+for i in $(seq 1 60); do
+  if curl -fs --max-time 2 http://127.0.0.1:8096/health >/dev/null 2>&1; then
+    echo "api healthy after ${i}s"
+    ok=1
+    break
+  fi
+  sleep 1
+done
+if [ "$ok" != "1" ]; then
+  echo "api did not become healthy within 60s — check 'docker logs deploy-api-1'"
+  exit 1
+fi
 REMOTE_COMPOSE
 
 echo
-echo "Bringing nginx site online (idempotent)..."
-ssh "${SSH_HOST}" DOMAIN="${DOMAIN}" 'bash -s' <<'REMOTE_NGINX'
+echo "Bringing nginx site online (idempotent, SSL-aware)..."
+# Strategy: own both bootstrap (HTTP-only) and SSL configs ourselves so each
+# deploy is deterministic. If cert already exists for DOMAIN we drop the SSL
+# config straight away. If not, we drop the bootstrap config first, run certbot
+# in `certonly` mode (does NOT mutate any nginx config), then swap in SSL.
+ssh "${SSH_HOST}" DOMAIN="${DOMAIN}" ACME_EMAIL="${ACME_EMAIL}" 'bash -s' <<'REMOTE_NGINX'
 set -euo pipefail
-sed "s/__DOMAIN__/${DOMAIN}/g" /opt/contentos/deploy/nginx-contentos.conf \
-    > /etc/nginx/sites-available/contentos
-ln -sf /etc/nginx/sites-available/contentos /etc/nginx/sites-enabled/contentos
-nginx -t
-systemctl reload nginx
-echo "nginx site contentos active"
-REMOTE_NGINX
 
-echo
-echo "certbot for SSL (idempotent - skips if cert already valid)..."
-ssh "${SSH_HOST}" DOMAIN="${DOMAIN}" ACME_EMAIL="${ACME_EMAIL}" 'bash -s' <<'REMOTE_CERTBOT'
-set -euo pipefail
-if certbot certificates 2>/dev/null | grep -q "Domains: ${DOMAIN}"; then
-  echo "Cert already issued; skipping"
+CERT_LIVE="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+SITE_AVAILABLE="/etc/nginx/sites-available/contentos"
+SITE_ENABLED="/etc/nginx/sites-enabled/contentos"
+
+write_site() {
+  local src="$1"
+  sed "s/__DOMAIN__/${DOMAIN}/g" "/opt/contentos/deploy/${src}" > "${SITE_AVAILABLE}"
+  ln -sf "${SITE_AVAILABLE}" "${SITE_ENABLED}"
+  nginx -t
+  systemctl reload nginx
+}
+
+if [ -f "${CERT_LIVE}" ]; then
+  echo "Cert present → installing SSL nginx config"
+  write_site nginx-contentos-ssl.conf
 else
-  certbot --nginx \
+  echo "Cert missing → bootstrap (HTTP-only) nginx, then issue cert"
+  write_site nginx-contentos.conf
+
+  # Need ACME challenge directory the bootstrap config references.
+  mkdir -p /var/www/certbot
+
+  # certonly --webroot does NOT mutate any nginx config — we own it ourselves.
+  certbot certonly --webroot \
+    -w /var/www/certbot \
     -d "${DOMAIN}" \
-    --email "${ACME_EMAIL}" --agree-tos --no-eff-email --redirect \
+    --email "${ACME_EMAIL}" --agree-tos --no-eff-email \
     --non-interactive
+
+  echo "Cert issued → swapping to SSL nginx config"
+  write_site nginx-contentos-ssl.conf
 fi
-REMOTE_CERTBOT
+
+# Sanity-check the live cert really matches our domain (catches the failure
+# mode where Safari shows another project's cert because nginx fell back to
+# a default SSL vhost).
+SUBJECT=$(echo | openssl s_client -connect 127.0.0.1:443 -servername "${DOMAIN}" 2>/dev/null \
+            | openssl x509 -noout -subject 2>/dev/null || true)
+echo "Live cert subject: ${SUBJECT}"
+case "${SUBJECT}" in
+  *"${DOMAIN}"*) echo "nginx site contentos active (TLS OK)";;
+  *) echo "WARNING: live cert does not match ${DOMAIN} — please inspect"; exit 1;;
+esac
+REMOTE_NGINX
 
 echo
 echo "Deploy complete."
