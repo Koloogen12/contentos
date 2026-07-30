@@ -286,19 +286,38 @@ async def run(
     if node.type == "format":
         platform = current.get("platform", "telegram")
         tp = current.get("talking_point_text") or skill_input.get("talking_point") or ""
-        if not tp:
-            raise ValueError("Нет talking_point для tweak format")
+        # Тезис есть не у всех форматов: рецензия и материал для vc пишутся
+        # по всему исходнику целиком, поэтому talking_point_text у них пуст
+        # по определению. Раньше проверка стояла здесь, до разбора режима, и
+        # роняла даже те режимы, которым тезис не нужен вовсе, — «Редактура»
+        # правит уже готовый текст и на исходный тезис не смотрит.
+        # Поэтому требуем тезис точечно, там где он реально читается.
 
         if mode == "regenerate":
-            # Delegate to the platform's primary creator (re-run skill).
+            # Пересборка = повторный запуск основного скилла платформы. Вход
+            # для него собирает brand_context по связям ноды, а не мы: у
+            # рецензии это исходник целиком плюс все тезисы, у остальных —
+            # один тезис. Своими руками собрать такой вход здесь нельзя.
             from app.services.skills.base import FORMAT_PLATFORM_TO_SKILL, get
+            from app.services.brand_context import collect_input_for_skill
+
             primary = FORMAT_PLATFORM_TO_SKILL.get(platform)
             if not primary:
                 raise ValueError(f"Платформа {platform} не поддерживается")
             primary_fn = get(primary)
-            return await primary_fn(db, node, system_context, {"talking_point": tp, "platform": platform})
+            primary_input = await collect_input_for_skill(db, node)
+            if not primary_input:
+                primary_input = {"talking_point": tp, "platform": platform}
+            primary_input.setdefault("platform", platform)
+            return await primary_fn(db, node, system_context, primary_input)
 
         if mode == "rehook":
+            if not tp:
+                raise ValueError(
+                    "У этого формата нет отдельного тезиса, поэтому "
+                    "перегенерировать крючок нечем. Используй «Редактуру» "
+                    "или пересобери материал целиком."
+                )
             return await _rehook_by_platform(
                 platform=platform,
                 tp=tp,
@@ -327,8 +346,27 @@ async def run(
             # символов не помещается, а урезанный ответ выглядел бы как
             # «редактор проглотил половину материала».
             is_edit = mode == "edit"
-            body_in = current.get("body", "")[: 12000 if is_edit else 3000]
-            user = f"ТЕЗИС: {tp}\nПЛАТФОРМА: {platform}\n\nТЕКУЩИЙ BODY: {body_in}"
+
+            # У длинных форматов тела в поле `body` нет: рецензия, материал
+            # для vc и статья собираются из разделов, а связный текст лежит
+            # в `full_text`. Правка `body` у них молча редактировала пустую
+            # строку. Поэтому берём то поле, в котором у этого формата
+            # реально есть текст, и туда же возвращаем результат.
+            source_field = "body" if (current.get("body") or "").strip() else "full_text"
+            body_in = (current.get(source_field) or "")[: 12000 if is_edit else 3000]
+            if not body_in.strip():
+                raise ValueError(
+                    "В ноде нет текста для правки — сначала сгенерируй материал."
+                )
+
+            # Тезис есть не у всех форматов. Пустая строка «ТЕЗИС:» читается
+            # моделью как отсутствие темы и уводит правку в сторону, поэтому
+            # для рецензии подставляем то, о чём она: заголовок материала.
+            subject = tp or str(current.get("title") or "").strip()
+            subject_line = f"ТЕЗИС: {subject}\n" if subject else ""
+            user = (
+                f"{subject_line}ПЛАТФОРМА: {platform}\n\nТЕКУЩИЙ ТЕКСТ: {body_in}"
+            )
             parsed = await ai_client.chat_json(
                 system=system,
                 user=user,
@@ -338,7 +376,11 @@ async def run(
             new_body = str(parsed.get("body", "")).strip()
             if not new_body:
                 raise RuntimeError("AI не вернул body")
-            new_data["body"] = new_body
+            new_data[source_field] = new_body
+            # Нода показывает full_text — если правили его, подписи разделов
+            # больше не соответствуют тексту, и оставлять их нельзя.
+            if source_field == "full_text":
+                new_data.pop("sections", None)
             hooks = current.get("hooks") or []
             selected = current.get("selected_hook_index", 0)
             hook = hooks[selected] if hooks and 0 <= selected < len(hooks) else ""

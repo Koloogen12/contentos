@@ -341,6 +341,44 @@ def _recover_truncated_object(s: str) -> dict | None:
     return {array_key: items}
 
 
+def _escape_raw_newlines_in_strings(s: str) -> str:
+    """Экранировать переводы строк, оказавшиеся внутри строк JSON.
+
+    Модель пишет связный текст абзацами и иногда ставит между ними живой
+    перенос прямо в значении. Для JSON это синтаксическая ошибка, хотя
+    ответ полный и по смыслу целый. Раньше такой ответ отбрасывался
+    целиком с сообщением «AI returned invalid JSON», по которому нельзя
+    догадаться, что данные на самом деле пришли.
+
+    Идём по строке, отслеживая, находимся ли мы внутри строкового литерала,
+    и заменяем сырые управляющие символы на их экранированный вид.
+    """
+    out: list[str] = []
+    in_string = False
+    escaped = False
+    for ch in s:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            elif ch == "\n":
+                out.append("\\n")
+                continue
+            elif ch == "\r":
+                out.append("\\r")
+                continue
+            elif ch == "\t":
+                out.append("\\t")
+                continue
+        elif ch == '"':
+            in_string = True
+        out.append(ch)
+    return "".join(out)
+
+
 async def chat_json(
     *,
     system: str,
@@ -401,7 +439,24 @@ async def chat_json(
         except json.JSONDecodeError:
             pass
 
-    # Pass 3: truncation recovery for `{"key": [...]}` mid-array.
+    # Pass 3: сырые переводы строк внутри значений — частый случай у
+    # длинных текстов, где абзацы разделены живым переносом.
+    repaired = _escape_raw_newlines_in_strings(cleaned)
+    if repaired != cleaned:
+        for candidate in (repaired, _balanced_json_slice(repaired) or ""):
+            if not candidate:
+                continue
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    logger.info("JSON восстановлен экранированием переносов")
+                    return parsed
+                if isinstance(parsed, list):
+                    return {"items": parsed}
+            except json.JSONDecodeError:
+                pass
+
+    # Pass 4: truncation recovery for `{"key": [...]}` mid-array.
     recovered = _recover_truncated_object(cleaned)
     if recovered:
         return recovered

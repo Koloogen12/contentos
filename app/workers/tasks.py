@@ -94,11 +94,44 @@ async def run_skill(ctx: dict, skill_run_id_str: str) -> dict[str, Any]:
                     raise ValueError(skill_input["error"])
                 skill_run.input_snapshot = skill_input
 
+            # Образцы голоса (few-shot из voice_samples) нужны каждому
+            # скиллу, который пишет связный текст от лица автора, а не
+            # только телеграму с линкедином. Из-за старого списка из двух
+            # имён рецензия и статья писались вообще без единого примера
+            # авторской манеры — отсюда и «не от моего лица».
+            #
+            # Извлечения и планировщики сюда не входят намеренно: они
+            # разбирают чужой материал, и подмешивать туда авторский стиль
+            # значит переписывать источник его словами.
+            VOICE_AWARE_SKILLS = {
+                "telegram_creator",
+                "linkedin_creator",
+                "twitter_creator",
+                "instagram_creator",
+                "article_creator",
+                "review_creator",
+                "vc_creator",
+                "carousel_creator",
+                "reels_script_writer",
+                "hooks_creator",
+            }
             voice_query = None
-            if skill_run.skill in ("telegram_creator", "linkedin_creator"):
-                voice_query = skill_input.get("talking_point")
+            if skill_run.skill in VOICE_AWARE_SKILLS:
+                # Чем ищем похожие образцы: тезис, если он есть, иначе тема
+                # материала — у рецензии отдельного тезиса нет.
+                voice_query = (
+                    skill_input.get("talking_point")
+                    or (node.data or {}).get("talking_point_text")
+                    or (node.data or {}).get("title")
+                    or (skill_input.get("source_content") or "")[:500]
+                    or None
+                )
             elif skill_run.skill == "tweak" and node.type == "format":
-                voice_query = (node.data or {}).get("talking_point_text") or skill_input.get("talking_point")
+                voice_query = (
+                    (node.data or {}).get("talking_point_text")
+                    or skill_input.get("talking_point")
+                    or (node.data or {}).get("title")
+                )
 
             system_context = await build_skill_context(
                 db,
