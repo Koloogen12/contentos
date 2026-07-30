@@ -307,21 +307,33 @@ async def run(
                 new_data=new_data,
             )
 
-        if mode in ("shorten", "amplify_voice", "platform_optimize"):
-            system_map = {
-                "shorten": _FORMAT_SHORTEN,
-                "amplify_voice": _FORMAT_AMPLIFY_VOICE,
-                "platform_optimize": _FORMAT_PLATFORM,
-                "edit": _FORMAT_EDIT,
-            }
+        # Условие входа выводится из самого словаря, а не дублирует его
+        # списком: раньше «edit» добавили в словарь, забыли в условие, и
+        # режим падал с «неизвестный mode» при том, что промпт для него был.
+        system_map = {
+            "shorten": _FORMAT_SHORTEN,
+            "amplify_voice": _FORMAT_AMPLIFY_VOICE,
+            "platform_optimize": _FORMAT_PLATFORM,
+            "edit": _FORMAT_EDIT,
+        }
+        if mode in system_map:
             # machine_tells нужен только режиму «Редактура»; остальным
             # промптам лишний kwarg безвреден — str.format его игнорирует.
             system = system_map[mode].format(
                 brand_context=brand, machine_tells=MACHINE_TELLS_BLOCK
             )
-            user = f"ТЕЗИС: {tp}\nПЛАТФОРМА: {platform}\n\nТЕКУЩИЙ BODY: {current.get('body', '')[:3000]}"
+            # Редактура обязана вернуть текст целиком, а не сжать его, поэтому
+            # ей и на вход, и на выход нужен запас: длинная статья в 3000
+            # символов не помещается, а урезанный ответ выглядел бы как
+            # «редактор проглотил половину материала».
+            is_edit = mode == "edit"
+            body_in = current.get("body", "")[: 12000 if is_edit else 3000]
+            user = f"ТЕЗИС: {tp}\nПЛАТФОРМА: {platform}\n\nТЕКУЩИЙ BODY: {body_in}"
             parsed = await ai_client.chat_json(
-                system=system, user=user, temperature=0.7, max_tokens=2000
+                system=system,
+                user=user,
+                temperature=0.7,
+                max_tokens=8000 if is_edit else 2000,
             )
             new_body = str(parsed.get("body", "")).strip()
             if not new_body:
