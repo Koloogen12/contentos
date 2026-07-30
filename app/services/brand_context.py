@@ -295,6 +295,16 @@ async def collect_input_for_skill(db: AsyncSession, node: Node) -> dict[str, Any
             content = parent_data.get("content")
             if not content:
                 return {"error": "У источника пустой content"}
+            # Рецензия читает материал целиком, поэтому не режем до 2000
+            # символов и кладём в source_content, а не в talking_point.
+            # Тезисов на этом пути нет — разбор пойдёт по тексту.
+            if (node.data or {}).get("platform") == "review":
+                return {
+                    "source_content": content,
+                    "talking_points": [],
+                    "platform": "review",
+                    "parent_node_id": str(parent.id),
+                }
             return {
                 "talking_point": content[:2000],
                 "platform": (node.data or {}).get("platform", "telegram"),
@@ -304,6 +314,14 @@ async def collect_input_for_skill(db: AsyncSession, node: Node) -> dict[str, Any
             reply = _llm_last_reply(parent_data)
             if not reply:
                 return {"error": "У LLM-ноды пока нет ответа для передачи"}
+            # Третий вход в рецензию: разбор ответа ассистента целиком.
+            if (node.data or {}).get("platform") == "review":
+                return {
+                    "source_content": reply,
+                    "talking_points": [],
+                    "platform": "review",
+                    "parent_node_id": str(parent.id),
+                }
             return {
                 "talking_point": reply[:2000],
                 "platform": (node.data or {}).get("platform", "telegram"),

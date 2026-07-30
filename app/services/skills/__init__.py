@@ -15,6 +15,7 @@ from app.services.skills import (  # noqa: F401
     transcribe_youtube,
     tweak,
     twitter_creator,
+    vc_creator,
     viral_talking_points,
 )
 from app.services.skills.base import get, list_registered, register, skill_for_node

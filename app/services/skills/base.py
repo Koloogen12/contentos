@@ -234,6 +234,8 @@ FORMAT_PLATFORM_TO_SKILL = {
     "article": "article_creator",
     # Рецензия на весь материал, а не на один тезис — см. review_creator.
     "review": "review_creator",
+    # Материал для vc.ru с требованиями модерации площадки.
+    "vc": "vc_creator",
     "twitter": "twitter_creator",
     "instagram": "instagram_creator",
 }
