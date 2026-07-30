@@ -14,10 +14,12 @@ from app.models.content_plan import PlannedPost
 from app.models.share import CanvasShareToken
 from app.models.version import CanvasVersion
 from app.models.linkedin import LinkedInAccount
+from app.models.social import SocialAccount
 
 __all__ = [
     "Base",
     "TimestampMixin",
+    "SocialAccount",
     "Organization",
     "User",
     "Canvas",

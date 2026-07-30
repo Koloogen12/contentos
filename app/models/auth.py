@@ -42,6 +42,13 @@ class Organization(Base, TimestampMixin):
     trial_renders_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     trial_session_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # Профиль-арендатор на стороне шлюза публикации (Zernio). Заводится
+    # при первом подключении Instagram/Threads/X и дальше не меняется:
+    # именно он изолирует аккаунты одной организации от других.
+    zernio_profile_id: Mapped[str | None] = mapped_column(
+        String(128), nullable=True
+    )
+
     users: Mapped[list["User"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     canvases: Mapped[list["Canvas"]] = relationship(back_populates="organization", cascade="all, delete-orphan")
     projects: Mapped[list["Project"]] = relationship(back_populates="organization", cascade="all, delete-orphan")

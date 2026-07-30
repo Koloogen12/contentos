@@ -64,10 +64,18 @@ class PublishLog(Base):
         ForeignKey("nodes.id", ondelete="CASCADE"),
         nullable=False,
     )
-    target_id: Mapped[uuid.UUID] = mapped_column(
+    # Ровно одна из двух ссылок заполнена — это проверяется в БД
+    # (ck_publish_logs_one_target). Телеграм остался на своей таблице,
+    # чтобы не переписывать работающие публикации и их метрики.
+    target_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("telegram_targets.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+    )
+    social_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("social_accounts.id", ondelete="CASCADE"),
+        nullable=True,
     )
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)

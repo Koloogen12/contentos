@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 from app.api.deps import CurrentUser
 from app.config import settings
+from app.services import zernio
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
@@ -41,6 +42,9 @@ class IntegrationOut(BaseModel):
     setup_hint: str = ""
     # Честное предупреждение о цене или ограничениях площадки.
     caveat: str = ""
+    # Как подключается аккаунт: "native" — нашей ручкой, "gateway" — через
+    # внешний шлюз. Клиенту нужно знать, какую кнопку рисовать.
+    connect_via: Literal["native", "gateway"] = "native"
 
 
 @router.get("", response_model=list[IntegrationOut])
@@ -48,6 +52,17 @@ async def list_integrations(current: CurrentUser) -> list[IntegrationOut]:
     telegram_ready = bool(settings.TELEGRAM_BOT_TOKEN)
     linkedin_ready = bool(
         settings.LINKEDIN_CLIENT_ID and settings.LINKEDIN_CLIENT_SECRET
+    )
+    # Instagram, Threads и X идут через внешний шлюз: своё приложение Meta
+    # требует App Review, а запись в X — платного тарифа. Один ключ шлюза
+    # открывает все три сразу.
+    gateway_ready = zernio.is_configured()
+    gateway_hint = (
+        ""
+        if gateway_ready
+        else "Нужен ключ шлюза публикации (zernio.com): создайте API-ключ и "
+        "передайте его администратору как ZERNIO_API_KEY. Первые два "
+        "подключённых аккаунта бесплатны."
     )
 
     return [
@@ -82,45 +97,37 @@ async def list_integrations(current: CurrentUser) -> list[IntegrationOut]:
         IntegrationOut(
             id="x",
             name="X",
-            status="planned",
-            capability="Публикация тредов и постов.",
-            setup_hint=(
-                "Нужно приложение на developer.x.com с доступом на запись."
-            ),
+            status="ready" if gateway_ready else "needs_setup",
+            capability="Публикация постов и тредов.",
+            setup_hint=gateway_hint,
             caveat=(
-                "Запись в X закрыта бесплатным тарифом: публикация доступна "
-                "только на платном плане. Пока площадка не подключена, посты "
-                "для неё готовятся в канвасе и копируются вручную."
+                "Свой платный тариф X не нужен — шлюз публикует через свой "
+                "доступ и берёт только за запросы."
             ),
+            connect_via="gateway",
         ),
         IntegrationOut(
             id="instagram",
             name="Instagram",
-            status="planned",
-            capability="Публикация каруселей и Reels.",
-            setup_hint=(
-                "Нужен профессиональный аккаунт Instagram, привязанный к "
-                "странице Facebook, и приложение в Meta for Developers с "
-                "продуктом Instagram Graph API."
-            ),
+            status="ready" if gateway_ready else "needs_setup",
+            capability="Публикация каруселей и постов.",
+            setup_hint=gateway_hint,
             caveat=(
-                "Meta требует проверки приложения перед выдачей прав на "
-                "публикацию — это занимает недели и делается один раз "
-                "владельцем продукта."
+                "Instagram разрешает публикацию по API только из аккаунта "
+                "Business или Creator — личный профиль подключить нельзя."
             ),
+            connect_via="gateway",
         ),
         IntegrationOut(
             id="threads",
             name="Threads",
-            status="planned",
+            status="ready" if gateway_ready else "needs_setup",
             capability="Публикация постов и веток.",
-            setup_hint=(
-                "Нужно приложение в Meta for Developers с продуктом Threads "
-                "API и тот же профессиональный аккаунт, что и для Instagram."
-            ),
+            setup_hint=gateway_hint,
             caveat=(
-                "Threads API живёт по правилам Meta и тоже требует проверки "
-                "приложения."
+                "Threads берётся из того же аккаунта Instagram: нужен "
+                "Business или Creator с включённым Threads."
             ),
+            connect_via="gateway",
         ),
     ]

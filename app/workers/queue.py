@@ -8,6 +8,7 @@ from app.config import settings
 from app.workers.tasks import (
     cleanup_expired_trials,
     publish_to_telegram,
+    publish_via_gateway,
     pull_telegram_metrics_all,
     pull_telegram_metrics_one,
     render_carousel,
@@ -102,6 +103,7 @@ class WorkerSettings:
     functions = [
         run_skill,
         publish_to_telegram,
+    publish_via_gateway,
         render_carousel,
         slide_tweak,
         pull_telegram_metrics_one,

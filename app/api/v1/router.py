@@ -9,6 +9,7 @@ from app.api.v1 import (
     knowledge,
     linkedin,
     integrations,
+    social_accounts,
     llm_node,
     media,
     nodes,
@@ -30,6 +31,7 @@ api_router.include_router(auth.router)
 api_router.include_router(canvases.router)
 api_router.include_router(nodes.router)
 api_router.include_router(integrations.router)
+api_router.include_router(social_accounts.router)
 api_router.include_router(llm_node.router)
 api_router.include_router(edges.router)
 api_router.include_router(skill_runs.router)

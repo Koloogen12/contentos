@@ -9,6 +9,9 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser, DbSession
 from app.models.canvas import Canvas, Node
 from app.models.publish import PublishLog, TelegramTarget
+from app.models.social import SocialAccount
+from pydantic import BaseModel
+
 from app.schemas.publish import PublishLogOut, PublishStart, PublishStarted
 from app.workers.queue import get_arq_pool
 
@@ -182,3 +185,61 @@ async def refresh_publish_log_metrics(
     log.metrics = metrics
     await db.flush()
     return PublishLogOut.model_validate(log)
+
+class PublishToAccount(BaseModel):
+    social_account_id: uuid.UUID
+
+
+@router.post(
+    "/nodes/{node_id}/publish-to-account",
+    response_model=PublishStarted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def publish_node_to_account(
+    node_id: uuid.UUID,
+    payload: PublishToAccount,
+    current: CurrentUser,
+    db: DbSession,
+) -> PublishStarted:
+    """Публикация в аккаунт, подключённый через внешний шлюз.
+
+    Отдельно от /publish, который остался за Telegram: у того своя таблица
+    целей и свой сбор метрик со страницы канала. Общего у них ровно одно —
+    журнал публикаций, поэтому его и переиспользуем.
+    """
+    node = await _owned_format_node(db, node_id, current.organization_id)
+    text = (node.data or {}).get("full_text") or ""
+    if not text.strip():
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "В ноде нет full_text — сначала запусти Format.",
+        )
+
+    account = await db.scalar(
+        select(SocialAccount).where(
+            SocialAccount.id == payload.social_account_id,
+            SocialAccount.organization_id == current.organization_id,
+        )
+    )
+    if account is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Аккаунт не найден")
+    if not account.is_active:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Аккаунт отключён на стороне площадки — подключи заново.",
+        )
+
+    log = PublishLog(
+        node_id=node.id,
+        social_account_id=account.id,
+        status="pending",
+        text=text,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(log)
+    await db.flush()
+
+    pool = await get_arq_pool()
+    await pool.enqueue_job("publish_via_gateway", str(log.id))
+
+    return PublishStarted(publish_log_id=log.id, status="pending")

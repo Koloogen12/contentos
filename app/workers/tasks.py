@@ -14,7 +14,8 @@ from app.database import SessionLocal
 from app.models.canvas import Canvas, Node, SkillRun
 from app.models.knowledge import Project
 from app.models.publish import PublishLog, TelegramTarget
-from app.services import events, telegram_bot, telegram_metrics
+from app.models.social import SocialAccount
+from app.services import events, publishing, telegram_bot, telegram_metrics
 from app.services.brand_context import build_skill_context, collect_input_for_skill
 from app.services.render.carousel import (
     BrandVisual,
@@ -732,3 +733,52 @@ async def publish_to_telegram(ctx: dict, publish_log_id_str: str) -> dict[str, A
             log.completed_at = datetime.now(timezone.utc)
             await db.commit()
             return {"ok": False, "error": str(exc)}
+
+
+async def publish_via_gateway(ctx: dict, publish_log_id_str: str) -> dict[str, Any]:
+    """Опубликовать пост через внешний шлюз (Instagram / Threads / X).
+
+    Отдельная задача, а не ветка внутри публикации в Telegram: у них
+    разные режимы отказа. Телеграм-бот падает мгновенно и по нашей вине,
+    шлюз — по вине площадки и с текстом, который стоит показать целиком
+    («Instagram требует Business-аккаунт»).
+    """
+    publish_log_id = uuid.UUID(publish_log_id_str)
+
+    async with SessionLocal() as db:
+        log = await db.scalar(select(PublishLog).where(PublishLog.id == publish_log_id))
+        if log is None:
+            return {"ok": False, "error": "PublishLog not found"}
+
+        account = await db.scalar(
+            select(SocialAccount).where(SocialAccount.id == log.social_account_id)
+        )
+        if account is None:
+            log.status = "failed"
+            log.error = "Аккаунт отключён"
+            log.completed_at = datetime.now(timezone.utc)
+            await db.commit()
+            return {"ok": False, "error": "account not found"}
+
+        log.status = "sending"
+        await db.commit()
+
+        try:
+            response = await publishing.publish_via_gateway(
+                platform=account.platform,
+                account_external_id=account.external_id,
+                text=log.text,
+            )
+            log.status = "sent"
+            log.response = response
+            log.completed_at = datetime.now(timezone.utc)
+            await db.commit()
+            return {"ok": True}
+        except Exception as exc:
+            logger.exception("gateway publish failed")
+            log.status = "failed"
+            log.error = str(exc)[:2000]
+            log.completed_at = datetime.now(timezone.utc)
+            await db.commit()
+            return {"ok": False, "error": str(exc)}
+

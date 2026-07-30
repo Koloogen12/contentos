@@ -106,6 +106,10 @@ class Settings(BaseSettings):
     # the callback below into "Redirect URI" verbatim.
     # Prod:  https://draft.neurin.tech/api/v1/auth/yandex/callback
     # Local: http://localhost:8000/api/v1/auth/yandex/callback
+    # Шлюз публикации в Instagram / Threads / X. Ключ вида sk_...
+    # Пусто = площадки показываются как неподключённые, ошибок не бросаем.
+    ZERNIO_API_KEY: str = ""
+
     YANDEX_CLIENT_ID: str = ""
     YANDEX_CLIENT_SECRET: str = ""
     YANDEX_REDIRECT_URI: str = ""
