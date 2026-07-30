@@ -57,8 +57,11 @@ class Settings(BaseSettings):
     # Why not `gpt-5` / `gpt-5-mini`: those are reasoning models — they
     # burn the `max_tokens` budget on internal thinking and return
     # `finish_reason="length"` with empty content for non-trivial prompts.
-    COMETAPI_MODEL: str = "claude-opus-4-8"
-    COMETAPI_MODEL_STRUCTURED: str = "claude-opus-4-8"
+    # Sonnet 5 вместо Opus 4.8: вдвое-втрое дешевле при близком качестве на
+    # текстовых задачах. Расход теперь пишется в skill_runs, так что эффект
+    # перехода можно посчитать, а не оценивать на глаз.
+    COMETAPI_MODEL: str = "claude-sonnet-5"
+    COMETAPI_MODEL_STRUCTURED: str = "claude-sonnet-5"
     COMETAPI_MODEL_EMBEDDING: str = "text-embedding-3-small"
     COMETAPI_MODEL_WHISPER: str = "whisper-1"
     # Image generation for carousel covers and full AI-carousel slides.

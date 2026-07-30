@@ -173,6 +173,20 @@ class SkillRun(Base):
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Расход токенов. Раньше не писался вообще: провайдер возвращает
+    # счётчики в каждом ответе, а мы их выбрасывали — и не могли сказать,
+    # какой скилл съедает бюджет и помогла ли правка промпта.
+    #
+    # `model` пишется рядом с числами намеренно: цена за токен у моделей
+    # разная, поэтому без имени модели счётчики не переводятся в деньги —
+    # особенно на переходе, когда часть запусков ушла на одной модели, а
+    # часть на другой.
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cached_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

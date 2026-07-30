@@ -15,7 +15,7 @@ from app.models.canvas import Canvas, Node, SkillRun
 from app.models.knowledge import Project
 from app.models.publish import PublishLog, TelegramTarget
 from app.models.social import SocialAccount
-from app.services import events, publishing, telegram_bot, telegram_metrics
+from app.services import ai_client, events, publishing, telegram_bot, telegram_metrics
 from app.services.brand_context import build_skill_context, collect_input_for_skill
 from app.services.render.carousel import (
     BrandVisual,
@@ -143,7 +143,11 @@ async def run_skill(ctx: dict, skill_run_id_str: str) -> dict[str, Any]:
 
             skill_fn = get_skill(skill_run.skill)
             await _publish(skill_run_id, "progress", {"step": "calling-ai"})
-            result = await skill_fn(db, node, system_context, skill_input)
+            # Расход собираем вокруг всего вызова: скилл может сходить в
+            # модель несколько раз (повтор при отказе прокси, второй проход
+            # у tweak), и считать надо все обращения, а не последнее.
+            with ai_client.collect_usage() as usage:
+                result = await skill_fn(db, node, system_context, skill_input)
 
             new_data = result.get("node_data") or {}
             node.data = new_data
@@ -168,6 +172,14 @@ async def run_skill(ctx: dict, skill_run_id_str: str) -> dict[str, Any]:
             skill_run.duration_ms = duration_ms
             skill_run.completed_at = datetime.now(timezone.utc)
             skill_run.output = None
+            # Ноль вызовов бывает у скиллов без обращения к модели
+            # (например, извлечение текста по ссылке) — им пишем NULL,
+            # чтобы не путать «бесплатно» с «не считали».
+            if usage["calls"]:
+                skill_run.input_tokens = usage["input_tokens"]
+                skill_run.output_tokens = usage["output_tokens"]
+                skill_run.cached_input_tokens = usage["cached_input_tokens"]
+                skill_run.model = usage["model"]
             await db.commit()
 
             await _publish(

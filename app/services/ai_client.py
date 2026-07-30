@@ -5,6 +5,9 @@ to Anthropic direct without touching call sites.
 """
 import json
 import logging
+import contextlib
+import contextvars
+from collections.abc import Iterator
 from typing import Any
 
 from openai import AsyncOpenAI
@@ -32,11 +35,67 @@ def _client() -> AsyncOpenAI:
 # Every skill call site still passes a temperature (0.7-0.9), so we strip it
 # here rather than touching 15 call sites — sampling defaults to the model's
 # own, which is what those models want anyway.
-MODELS_WITHOUT_TEMPERATURE: frozenset[str] = frozenset({"claude-opus-4-8"})
+# Модели, отвергающие temperature с 400 вместо того чтобы её проигнорировать.
+# Без записи здесь каждый запрос делал бы лишний круг: первый вызов падает,
+# перехватчик снимает параметр и повторяет. На Sonnet 5 и Opus 5 отвергаются
+# все сэмплирующие параметры — стиль задаётся промптом, а не temperature.
+MODELS_WITHOUT_TEMPERATURE: frozenset[str] = frozenset(
+    {"claude-opus-4-8", "claude-opus-5", "claude-sonnet-5", "claude-fable-5"}
+)
 
 
 def _supports_temperature(model: str) -> bool:
     return model not in MODELS_WITHOUT_TEMPERATURE
+
+
+# ---------------------------------------------------------------------------
+# Учёт расхода токенов
+# ---------------------------------------------------------------------------
+#
+# Один запуск скилла может сделать несколько вызовов модели (повтор при
+# отказе прокси, второй проход у tweak). Считать нужно все, поэтому счётчик
+# живёт в contextvar: воркер открывает его на время запуска, а клиент
+# складывает туда каждый ответ, не зная, кто его позвал.
+#
+# contextvar, а не глобальная переменная: воркер обрабатывает задачи
+# конкурентно, и общий счётчик смешал бы расход разных запусков.
+
+_usage_sink: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "ai_usage_sink", default=None
+)
+
+
+@contextlib.contextmanager
+def collect_usage() -> Iterator[dict[str, Any]]:
+    """Собрать расход всех вызовов модели внутри блока."""
+    acc: dict[str, Any] = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cached_input_tokens": 0,
+        "model": None,
+        "calls": 0,
+    }
+    token = _usage_sink.set(acc)
+    try:
+        yield acc
+    finally:
+        _usage_sink.reset(token)
+
+
+def _record_usage(response: Any, model: str) -> None:
+    acc = _usage_sink.get()
+    if acc is None:
+        return
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+    details = getattr(usage, "prompt_tokens_details", None)
+    cached = getattr(details, "cached_tokens", None) if details else None
+    acc["input_tokens"] += getattr(usage, "prompt_tokens", 0) or 0
+    acc["output_tokens"] += getattr(usage, "completion_tokens", 0) or 0
+    acc["cached_input_tokens"] += cached or 0
+    acc["model"] = model
+    acc["calls"] += 1
 
 
 @retry(
@@ -106,6 +165,7 @@ async def chat_completion(
             raise
         response = await _client().chat.completions.create(**kwargs)
 
+    _record_usage(response, resolved_model)
     content = response.choices[0].message.content
     if content is None:
         raise RuntimeError("Empty completion content from provider")
@@ -127,6 +187,7 @@ async def chat_completion(
             + system
         )
         response = await _client().chat.completions.create(**kwargs)
+        _record_usage(response, resolved_model)
         content = response.choices[0].message.content
         if content is None:
             raise RuntimeError("Empty completion content from provider")
