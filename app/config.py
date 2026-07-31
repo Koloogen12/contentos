@@ -57,9 +57,21 @@ class Settings(BaseSettings):
     # Why not `gpt-5` / `gpt-5-mini`: those are reasoning models — they
     # burn the `max_tokens` budget on internal thinking and return
     # `finish_reason="length"` with empty content for non-trivial prompts.
-    # Sonnet 5 вместо Opus 4.8: вдвое-втрое дешевле при близком качестве на
-    # текстовых задачах. Расход теперь пишется в skill_runs, так что эффект
-    # перехода можно посчитать, а не оценивать на глаз.
+    # Anthropic напрямую — для всей генерации текста. Причина перехода не
+    # цена (у прокси была скидка), а кэширование промпта: в каждый запрос
+    # уходит несколько тысяч токенов неизменного контекста — бренд, голос,
+    # редполитика, — и прокси кэш не поддерживает. Проверено: там
+    # cached_tokens остаётся нулём на повторных запросах.
+    # "cometapi" | "anthropic". По умолчанию прокси: API Anthropic не
+    # принимает запросы с российских адресов, а прод стоит в Москве.
+    # Переключить на "anthropic" можно, когда появится релей в разрешённой
+    # стране — код для прямого доступа готов и лежит рядом.
+    AI_PROVIDER: str = "cometapi"
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-sonnet-5"
+
+    # Прокси остаётся для того, чего у Anthropic нет: эмбеддинги для поиска
+    # похожих образцов голоса, распознавание речи и генерация картинок.
     COMETAPI_MODEL: str = "claude-sonnet-5"
     COMETAPI_MODEL_STRUCTURED: str = "claude-sonnet-5"
     COMETAPI_MODEL_EMBEDDING: str = "text-embedding-3-small"

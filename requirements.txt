@@ -31,6 +31,7 @@ redis==5.2.0
 
 # AI
 openai==1.55.3
+anthropic==0.75.0
 tiktoken==0.8.0
 
 # Transcription

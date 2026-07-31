@@ -10,6 +10,7 @@ import contextvars
 from collections.abc import Iterator
 from typing import Any
 
+from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
 from tenacity import (
     retry,
@@ -39,6 +40,45 @@ def _client() -> AsyncOpenAI:
 # Без записи здесь каждый запрос делал бы лишний круг: первый вызов падает,
 # перехватчик снимает параметр и повторяет. На Sonnet 5 и Opus 5 отвергаются
 # все сэмплирующие параметры — стиль задаётся промптом, а не temperature.
+
+_anthropic_client: AsyncAnthropic | None = None
+
+
+def _anthropic() -> AsyncAnthropic:
+    """Клиент Anthropic для генерации текста.
+
+    Прокси остался только там, где у Anthropic нет аналога: эмбеддинги,
+    распознавание речи, генерация картинок. Разделение проходит по
+    возможностям провайдера, а не по типу задачи.
+    """
+    global _anthropic_client
+    if _anthropic_client is None:
+        if not settings.ANTHROPIC_API_KEY:
+            raise RuntimeError(
+                "Генерация текста не настроена: на сервере нет ANTHROPIC_API_KEY."
+            )
+        _anthropic_client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    return _anthropic_client
+
+
+# Системный промпт уходит блоком с cache_control: бренд, голос и редполитика
+# в нём не меняются между запусками, а весят несколько тысяч токенов.
+# Чтение из кэша стоит 10% от обычного входа, запись — 125%, так что второй
+# и последующие запросы в пределах пяти минут окупают первый с запасом.
+#
+# Меньше порога кэш молча не создаётся (у Sonnet 5 это 1024 токена), поэтому
+# короткие системные промпты отправляем без пометки — она бы только мешала
+# читать код, обещая экономию, которой нет.
+_CACHE_MIN_CHARS = 3000
+
+
+def _system_blocks(system: str) -> list[dict[str, Any]]:
+    block: dict[str, Any] = {"type": "text", "text": system}
+    if len(system) >= _CACHE_MIN_CHARS:
+        block["cache_control"] = {"type": "ephemeral"}
+    return [block]
+
+
 MODELS_WITHOUT_TEMPERATURE: frozenset[str] = frozenset(
     {"claude-opus-4-8", "claude-opus-5", "claude-sonnet-5", "claude-fable-5"}
 )
@@ -83,19 +123,148 @@ def collect_usage() -> Iterator[dict[str, Any]]:
 
 
 def _record_usage(response: Any, model: str) -> None:
+    """Сложить расход одного ответа в счётчик текущего запуска.
+
+    Поля различаются по провайдеру: у Anthropic это input_tokens /
+    output_tokens и отдельно записанное и прочитанное из кэша, у
+    OpenAI-совместимого прокси — prompt_tokens / completion_tokens.
+    Разбираем оба, потому что эмбеддинги и распознавание речи остались там.
+    """
     acc = _usage_sink.get()
     if acc is None:
         return
     usage = getattr(response, "usage", None)
     if usage is None:
         return
-    details = getattr(usage, "prompt_tokens_details", None)
-    cached = getattr(details, "cached_tokens", None) if details else None
-    acc["input_tokens"] += getattr(usage, "prompt_tokens", 0) or 0
-    acc["output_tokens"] += getattr(usage, "completion_tokens", 0) or 0
-    acc["cached_input_tokens"] += cached or 0
+
+    cache_read = getattr(usage, "cache_read_input_tokens", None)
+    if cache_read is not None:
+        # Anthropic: во input_tokens кэш не входит, поэтому складываем сами —
+        # иначе стоимость запуска будет занижена на размер префикса.
+        cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+        acc["input_tokens"] += (
+            (getattr(usage, "input_tokens", 0) or 0) + cache_write + cache_read
+        )
+        acc["output_tokens"] += getattr(usage, "output_tokens", 0) or 0
+        acc["cached_input_tokens"] += cache_read
+    else:
+        details = getattr(usage, "prompt_tokens_details", None)
+        cached = getattr(details, "cached_tokens", None) if details else None
+        acc["input_tokens"] += getattr(usage, "prompt_tokens", 0) or 0
+        acc["output_tokens"] += getattr(usage, "completion_tokens", 0) or 0
+        acc["cached_input_tokens"] += cached or 0
+
     acc["model"] = model
     acc["calls"] += 1
+
+
+async def _direct_completion(
+    *,
+    system: str,
+    user: str,
+    model: str | None = None,
+    json_mode: bool = False,
+    temperature: float = 0.7,
+    max_tokens: int = 3000,
+) -> str:
+    """Одиночный запрос. Возвращает текст ответа.
+
+    Раньше здесь была защита от особенностей прокси: он подмешивал
+    собственные инструменты, и модель вместо текста возвращала заготовки
+    вызовов. Напрямую этой проблемы нет — без объявленных инструментов
+    вызывать нечего, поэтому защита убрана вместе с прокси.
+
+    `temperature` и `json_mode` в сигнатуре остались, чтобы не править
+    четырнадцать мест вызова, но обе игнорируются: Sonnet 5 отвергает
+    сэмплирующие параметры, а формат ответа задаётся промптом — у каждого
+    скилла он уже требует JSON, и разбор с восстановлением ниже рассчитан
+    именно на это.
+    """
+    resolved_model = model or settings.ANTHROPIC_MODEL
+    return await _anthropic_message(
+        model=resolved_model,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+        max_tokens=max_tokens,
+    )
+
+
+async def _direct_conversation(
+    *,
+    system: str,
+    history: list[dict[str, str]],
+    model: str | None = None,
+    max_tokens: int = 4000,
+    temperature: float = 0.7,
+) -> str:
+    """Многоходовой диалог. `history` — список {role, content} от старых к
+    новым. Используется LLM-нодой, где пользователь продолжает беседу.
+    """
+    messages: list[dict[str, str]] = []
+    for m in history:
+        role = m.get("role")
+        content = (m.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+    if not messages:
+        raise ValueError("Пустая история диалога")
+    # Первым обязан идти пользователь: у Anthropic история, начинающаяся с
+    # ответа ассистента, отклоняется.
+    if messages[0]["role"] != "user":
+        messages.insert(0, {"role": "user", "content": "(начало диалога)"})
+
+    return await _anthropic_message(
+        model=model or settings.ANTHROPIC_MODEL,
+        system=system,
+        messages=messages,
+        max_tokens=max_tokens,
+    )
+
+
+# Выше этого порога ответ забираем потоком: длинный ответ на обычном
+# запросе упирается в таймаут HTTP, и SDK такой вызов отклоняет заранее.
+_STREAM_ABOVE_TOKENS = 16_000
+
+
+async def _anthropic_message(
+    *,
+    model: str,
+    system: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+) -> str:
+    """Один вызов модели. Общая точка для одиночных запросов и диалога."""
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "system": _system_blocks(system),
+        "messages": messages,
+    }
+    client = _anthropic()
+
+    if max_tokens > _STREAM_ABOVE_TOKENS:
+        async with client.messages.stream(**kwargs) as stream:
+            response = await stream.get_final_message()
+    else:
+        response = await client.messages.create(**kwargs)
+
+    _record_usage(response, model)
+
+    # Обрыв по лимиту — это не пустой ответ, а обрезанный: у длинных форматов
+    # он приходил как «невалидный JSON», и причина была не видна ни из текста
+    # ошибки, ни из логов.
+    if response.stop_reason == "max_tokens":
+        logger.warning(
+            "модель %s упёрлась в max_tokens=%s — ответ обрезан", model, max_tokens
+        )
+
+    parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
+    text = "".join(parts).strip()
+    if not text:
+        if response.stop_reason == "refusal":
+            raise RuntimeError("Модель отказалась отвечать на этот материал")
+        raise RuntimeError("Модель вернула пустой ответ")
+    return text
 
 
 @retry(
@@ -104,7 +273,7 @@ def _record_usage(response: Any, model: str) -> None:
     retry=retry_if_exception_type(Exception),
     reraise=True,
 )
-async def chat_completion(
+async def _proxy_completion(
     *,
     system: str,
     user: str,
@@ -200,7 +369,7 @@ async def chat_completion(
     retry=retry_if_exception_type(Exception),
     reraise=True,
 )
-async def chat_conversation(
+async def _proxy_conversation(
     *,
     system: str,
     history: list[dict[str, str]],
@@ -254,6 +423,69 @@ async def chat_conversation(
     if content is None:
         raise RuntimeError("Empty completion content from provider")
     return content
+
+
+# ---------------------------------------------------------------------------
+# Выбор провайдера
+# ---------------------------------------------------------------------------
+#
+# Anthropic напрямую даёт кэширование промпта — на нашем объёме постоянного
+# контекста это главный рычаг экономии. Но их API не принимает запросы с
+# российских адресов: сервер в Москве получает 403 «Request not allowed» ещё
+# до проверки ключа. Прокси в проекте стоял именно поэтому, а не ради цены.
+#
+# Поэтому провайдер выбирается настройкой, а не наличием ключа: код для
+# прямого доступа готов и ждёт релея в разрешённой стране. Переключение —
+# одна переменная окружения, без правок кода.
+
+
+def _use_direct() -> bool:
+    return settings.AI_PROVIDER == "anthropic" and bool(settings.ANTHROPIC_API_KEY)
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=True,
+)
+async def chat_completion(
+    *,
+    system: str,
+    user: str,
+    model: str | None = None,
+    json_mode: bool = False,
+    temperature: float = 0.7,
+    max_tokens: int = 3000,
+) -> str:
+    if _use_direct():
+        return await _direct_completion(
+            system=system, user=user, model=model, json_mode=json_mode,
+            temperature=temperature, max_tokens=max_tokens,
+        )
+    return await _proxy_completion(
+        system=system, user=user, model=model, json_mode=json_mode,
+        temperature=temperature, max_tokens=max_tokens,
+    )
+
+
+async def chat_conversation(
+    *,
+    system: str,
+    history: list[dict[str, str]],
+    model: str | None = None,
+    max_tokens: int = 4000,
+    temperature: float = 0.7,
+) -> str:
+    if _use_direct():
+        return await _direct_conversation(
+            system=system, history=history, model=model,
+            max_tokens=max_tokens, temperature=temperature,
+        )
+    return await _proxy_conversation(
+        system=system, history=history, model=model,
+        max_tokens=max_tokens, temperature=temperature,
+    )
 
 
 def _extract_json_payload(raw: str) -> str:
