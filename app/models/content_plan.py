@@ -4,11 +4,13 @@ from typing import Any
 
 from sqlalchemy import (
     ARRAY,
+    Boolean,
     CheckConstraint,
     Date as SaDate,
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     Time as SaTime,
@@ -29,7 +31,8 @@ class PlannedPost(Base, TimestampMixin):
     __tablename__ = "planned_posts"
     __table_args__ = (
         CheckConstraint(
-            "platform IN ('telegram','instagram','linkedin','twitter','article','carousel','reels','hooks')",
+            "platform IN ('telegram','instagram','linkedin','twitter','article',"
+            "'carousel','reels','hooks','review','vc','stories')",
             name="ck_planned_posts_platform",
         ),
         CheckConstraint(
@@ -45,6 +48,11 @@ class PlannedPost(Base, TimestampMixin):
         Index("idx_planned_posts_status", "status"),
         Index("idx_planned_posts_platform", "platform"),
         Index("idx_planned_posts_pillar", "pillar"),
+        Index("idx_planned_posts_launch", "launch_id"),
+        CheckConstraint(
+            "markup_origin IS NULL OR markup_origin IN ('rule','llm','human')",
+            name="ck_planned_posts_markup_origin",
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -98,3 +106,54 @@ class PlannedPost(Base, TimestampMixin):
     metrics: Mapped[dict[str, Any]] = mapped_column(
         JSONB, default=dict, nullable=False
     )
+
+    # ------------------------------------------------------------------
+    # Слот прогрева
+    # ------------------------------------------------------------------
+    #
+    # Всё, что ниже, заполнено только у единиц запуска. У обычного поста
+    # эти поля пусты, и по `launch_id IS NULL` регулярный контент-план
+    # отделяется от прогрева одним условием — смешивать их в одном экране
+    # нельзя, иначе через месяц не понять, где ведёшь блог, а где готовишь
+    # запуск.
+    launch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("launches.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    story_line_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("launch_story_lines.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    #: Идея банка, из которой снимается эта единица.
+    knowledge_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_items.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    launch_stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Рубрика конструктора: что этот день должен сказать.
+    meaning: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    trigger_key: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    #: Смыслы-галочки, которые закрывает эта единица.
+    checkpoints: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, nullable=False
+    )
+    #: Кто проставил разметку: rule / llm / human. Проверки засчитывают
+    #: покрытие только по подтверждённому человеком — иначе продукт начнёт
+    #: уверенно врать, что всё закрыто.
+    markup_origin: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    #: Есть ли под смыслом событие, кейс или цифра. Слова — самый
+    #: неубедительный вид доказательства.
+    has_proof: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Последний день окна продаж живёт по своим правилам.
+    is_last_day: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Пиковый день: сильные дни ставятся подряд, а не размазываются.
+    is_peak: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Правки, сделанные руками, переживают пересчёт при переносе даты.
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Оптимистичная блокировка: эксперт и продюсер правят один план, и без
+    #: версии чужая работа исчезает молча.
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

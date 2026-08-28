@@ -453,6 +453,70 @@ GET    /api/v1/publish-logs/{id}         → PublishLogOut
 
 ---
 
+## 9. Прогревы (Launches)
+
+Отдельное пространство: единицы запуска **не попадают** в обычный контент-план.
+`GET /content-plan/posts` по умолчанию отдаёт только не-запусковое; чтобы
+увидеть прогревы вместе с блогом, нужен явный `?include_launches=true`.
+
+Слот прогрева — это строка `planned_posts` с проставленным `launch_id`.
+Идея — `knowledge_items`. Отдельных таблиц под слоты и банк нет: единица без
+даты это банк, с датой — календарь.
+
+```http
+GET    /api/v1/launches/reference        → ReferenceResponse
+       Справочники методологии: этапы, рубрики, рычаги, смыслы, вопросы.
+       Объявлен ДО /{launch_id} — иначе «reference» примут за идентификатор.
+
+GET    /api/v1/launches                  → LaunchOut[]        ?include_archived=false
+POST   /api/v1/launches                  → 201 LaunchOut
+       { "name": "...", "sales_open": "2026-10-15" }
+       Обязательна одна дата — открытие продаж. Остальное разворачивается от неё.
+GET    /api/v1/launches/{id}             → LaunchOut
+PATCH  /api/v1/launches/{id}             → LaunchOut
+       Даты проверяются на итоговом наборе: 422 с человеческим текстом,
+       если закрытие раньше открытия или событие позже продаж.
+POST   /api/v1/launches/{id}/archive     → LaunchOut
+       Удаления нет. Архив, потому что иначе исчезает опубликованное.
+
+GET    /api/v1/launches/{id}/plan        → PlanResponse
+POST   /api/v1/launches/{id}/plan        → PlanResponse
+       { "replace": true, "assign_ideas": true }
+       Опубликованные и закреплённые (`is_pinned`) слоты переживают пересчёт.
+       `compressed` / `dropped` — что пришлось урезать, если до продаж мало дней.
+
+POST   /api/v1/launches/{id}/assign-ideas → { "filled": N, "empty": M }
+       Одна идея не может занять два слота. У пустого слота в `notes` лежит
+       причина — «в банке нет идей рубрики X», а не молчание.
+
+POST   /api/v1/launches/markup-bank      → { "marked": N, "total": M }  ?overwrite=false
+       Черновая разметка банка правилами. Ставит `markup_origin: "rule"`.
+
+GET    /api/v1/launches/{id}/report      → ReportOut
+       Находки с последствием и днями, в которые чинится. Процентов нет.
+       В покрытие идёт ТОЛЬКО `markup_origin: "human"` — автоматическая
+       разметка показывается отдельной шкалой `checkpoints_claimed`.
+
+PATCH  /api/v1/launches/{id}/slots/{slot_id} → LaunchSlotOut
+       { "confirm": true, "version": 3, "checkpoints": [...] }
+       Подтверждение разметки человеком. `version` — оптимистичная блокировка:
+       при расхождении 409, чтобы правка второго редактора не пропала молча.
+
+GET    /api/v1/launches/{id}/story-lines            → StoryLineOut[]
+POST   /api/v1/launches/{id}/story-lines            → 201 StoryLineOut
+PATCH  /api/v1/launches/{id}/story-lines/{line_id}  → StoryLineOut
+DELETE /api/v1/launches/{id}/story-lines/{line_id}  → 204
+```
+
+**Что важно знать фронту**
+
+- `markup_origin` — `rule | llm | human`. Зелёный статус покрытия рисуется только по `human`; всё остальное показывается как «не проверено».
+- `severity` находки — `critical | high | medium`. При наличии `critical` запуск не считается готовым (`ready: false`).
+- Площадка слота (`platform`) — `stories | reels | telegram`; список допустимых значений `planned_posts.platform` расширен значением `stories`.
+- Пустой слот всегда несёт причину в `notes` — её и надо показывать вместо «идея не подобрана».
+
+---
+
 ## Рекомендации фронту
 
 - **Хранение токена:** `access_token` — в памяти / sessionStorage (не localStorage). `refresh_token` — httpOnly cookie если возможно, иначе sessionStorage.

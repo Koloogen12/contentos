@@ -7,6 +7,7 @@ from app.api.v1 import (
     content_plan,
     edges,
     knowledge,
+    launches,
     linkedin,
     integrations,
     social_accounts,
@@ -44,6 +45,7 @@ api_router.include_router(publish.router)
 api_router.include_router(voice.router)
 api_router.include_router(share.router)
 api_router.include_router(versions.router)
+api_router.include_router(launches.router)
 api_router.include_router(content_plan.router)
 api_router.include_router(content_plan.schedule_router)
 api_router.include_router(search.router)

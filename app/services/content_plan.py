@@ -1,4 +1,11 @@
-"""Content plan analytics: week summary, streak, content-mix, what-to-write."""
+"""Content plan analytics: week summary, streak, content-mix, what-to-write.
+
+Единицы прогрева сюда не попадают. У запуска своя драматургия и своя
+плотность публикаций: если смешать их с регулярным контентом, недельная
+статистика блога и подсказка «что писать сегодня» начнут врать — сорок
+единиц прогрева перевесят любой обычный ритм. Отбор идёт по
+`launch_id IS NULL`.
+"""
 from __future__ import annotations
 
 import uuid
@@ -39,6 +46,7 @@ async def list_posts_in_range(
         select(PlannedPost)
         .where(
             PlannedPost.organization_id == organization_id,
+            PlannedPost.launch_id.is_(None),
             PlannedPost.scheduled_date >= date_from,
             PlannedPost.scheduled_date <= date_to,
         )
@@ -91,6 +99,7 @@ async def build_week_summary(
     ready_q = await db.scalars(
         select(PlannedPost).where(
             PlannedPost.organization_id == organization_id,
+            PlannedPost.launch_id.is_(None),
             PlannedPost.status == "ready",
             PlannedPost.scheduled_date.is_(None),
         )
@@ -125,6 +134,7 @@ async def compute_streak(
         select(func.date(PlannedPost.published_at))
         .where(
             PlannedPost.organization_id == organization_id,
+            PlannedPost.launch_id.is_(None),
             PlannedPost.published_at.is_not(None),
         )
         .group_by(func.date(PlannedPost.published_at))
@@ -167,6 +177,7 @@ async def build_stats(
     rows = await db.scalars(
         select(PlannedPost).where(
             PlannedPost.organization_id == organization_id,
+            PlannedPost.launch_id.is_(None),
             PlannedPost.status == "published",
         )
     )
@@ -249,6 +260,7 @@ async def what_to_write(
     week_rows = await db.scalars(
         select(PlannedPost).where(
             PlannedPost.organization_id == organization_id,
+            PlannedPost.launch_id.is_(None),
             PlannedPost.status == "published",
             PlannedPost.published_at.is_not(None),
             func.date(PlannedPost.published_at) >= monday,

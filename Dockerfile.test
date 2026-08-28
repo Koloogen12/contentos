@@ -1,0 +1,9 @@
+# Тестовый образ: та же версия Python, что в проде, но без тяжёлых
+# зависимостей вроде playwright — тесты прогревов их не трогают.
+FROM python:3.11-slim-bookworm
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
+WORKDIR /app
+COPY requirements-test.txt .
+RUN pip install -r requirements-test.txt
+COPY . .
+CMD ["pytest", "-q"]

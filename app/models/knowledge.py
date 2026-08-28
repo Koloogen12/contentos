@@ -120,6 +120,28 @@ class KnowledgeItem(Base, TimestampMixin):
     is_dormant: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_used_at: Mapped["DateTime | None"] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # ------------------------------------------------------------------
+    # Разметка под прогрев
+    # ------------------------------------------------------------------
+    #
+    # Проставляется правилами при импорте и уточняется человеком. Источник
+    # хранится рядом со значением намеренно: разметка по ключевым словам
+    # ошибается, и без пометки автогенерённое неотличимо от выверенного —
+    # а на этом строятся вердикты проверки.
+    launch_meaning: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    launch_checkpoints: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, nullable=False
+    )
+    launch_triggers: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, nullable=False
+    )
+    markup_origin: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    markup_verified_at: Mapped["DateTime | None"] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    #: Формат, под который идея написана: stories / reels / post / any.
+    content_format: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
 
 class NodeKnowledge(Base):
     """Many-to-many: which knowledge items are attached to a node for context injection."""

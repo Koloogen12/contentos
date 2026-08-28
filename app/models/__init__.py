@@ -15,6 +15,7 @@ from app.models.share import CanvasShareToken
 from app.models.version import CanvasVersion
 from app.models.linkedin import LinkedInAccount
 from app.models.social import SocialAccount
+from app.models.launch import Launch, LaunchStoryLine
 
 __all__ = [
     "Base",
@@ -42,4 +43,6 @@ __all__ = [
     "CanvasVersion",
     "PlannedPost",
     "LinkedInAccount",
+    "Launch",
+    "LaunchStoryLine",
 ]

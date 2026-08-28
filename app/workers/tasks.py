@@ -659,6 +659,7 @@ async def cleanup_expired_trials(ctx: dict) -> dict[str, Any]:
     from sqlalchemy import delete as _delete
 
     from app.models.auth import Organization
+    from app.models.launch import Launch
     from app.services.trial import PREVIEW_CLEANUP_DAYS
 
     cutoff = datetime.now(timezone.utc) - _td(days=PREVIEW_CLEANUP_DAYS)
@@ -669,6 +670,14 @@ async def cleanup_expired_trials(ctx: dict) -> dict[str, Any]:
                     select(Organization.id).where(
                         Organization.kind == "preview",
                         Organization.created_at < cutoff,
+                        # Песочница с запуском — не брошенная песочница.
+                        # Прогрев строят неделями и до даты продаж в него
+                        # не возвращаются каждый день; снести такую
+                        # организацию по таймеру значит стереть работу
+                        # человека прямо перед запуском.
+                        ~select(Launch.id)
+                        .where(Launch.organization_id == Organization.id)
+                        .exists(),
                     )
                 )
             ).all()

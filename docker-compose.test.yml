@@ -1,0 +1,34 @@
+# Интеграционное окружение для модуля прогревов: настоящий Postgres с
+# pgvector (его требуют knowledge_items) и прогон всех миграций с нуля.
+services:
+  db-test:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: contentos
+      POSTGRES_PASSWORD: contentos
+      POSTGRES_DB: contentos_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contentos -d contentos_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      db-test:
+        condition: service_healthy
+    # Код монтируется, а не копируется в образ: иначе любая правка
+    # инвалидирует слой COPY и каждый прогон начинается с пересборки.
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql+asyncpg://contentos:contentos@db-test:5432/contentos_test
+      DATABASE_SYNC_URL: postgresql+psycopg://contentos:contentos@db-test:5432/contentos_test
+      JWT_SECRET: test-secret-not-for-production
+      APP_ENV: development
+    command: ["pytest", "-q"]

@@ -58,12 +58,19 @@ async def list_posts(
     date_to: Date | None = Query(default=None),
     status_filter: PostStatusT | None = Query(default=None, alias="status"),
     platform: PlatformT | None = Query(default=None),
+    include_launches: bool = Query(
+        default=False,
+        description="Показывать единицы прогревов вместе с обычным планом",
+    ),
     pillar: PillarT | None = Query(default=None),
     project_id: uuid.UUID | None = Query(default=None),
 ) -> list[PlannedPostOut]:
     stmt = select(PlannedPost).where(
         PlannedPost.organization_id == current.organization_id
     )
+    # Прогревы живут отдельным пространством и в общий план не подмешиваются.
+    if not include_launches:
+        stmt = stmt.where(PlannedPost.launch_id.is_(None))
     if date_from is not None:
         stmt = stmt.where(PlannedPost.scheduled_date >= date_from)
     if date_to is not None:
@@ -194,6 +201,7 @@ async def queue(current: CurrentUser, db: DbSession) -> list[PlannedPostOut]:
         select(PlannedPost)
         .where(
             PlannedPost.organization_id == current.organization_id,
+            PlannedPost.launch_id.is_(None),
             PlannedPost.status == "ready",
             PlannedPost.scheduled_date.is_(None),
         )
