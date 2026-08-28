@@ -1,5 +1,13 @@
 # Интеграционное окружение для модуля прогревов: настоящий Postgres с
 # pgvector (его требуют knowledge_items) и прогон всех миграций с нуля.
+#
+# Запуск одной командой:
+#
+#   docker compose -f docker-compose.test.yml up --build \
+#     --abort-on-container-exit --exit-code-from tests
+#
+# Именно так, а не `run tests`: `run` не поднимает зависимости, если они не
+# запущены, и падает с «tests is missing dependency db-test».
 services:
   db-test:
     image: pgvector/pgvector:pg16
@@ -31,4 +39,6 @@ services:
       DATABASE_SYNC_URL: postgresql+psycopg://contentos:contentos@db-test:5432/contentos_test
       JWT_SECRET: test-secret-not-for-production
       APP_ENV: development
-    command: ["pytest", "-q"]
+    # Миграции накатываются здесь же: тесты гоняются на схеме, собранной
+    # тем же путём, что и прод, а не на созданной из моделей.
+    command: ["sh", "-c", "alembic upgrade head && pytest -q"]
