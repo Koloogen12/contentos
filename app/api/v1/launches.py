@@ -5,14 +5,14 @@
 иначе через месяц не понять, где ведёшь блог, а где готовишь запуск.
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import date as Date, datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
 from app.models.content_plan import PlannedPost
-from app.models.launch import Launch, LaunchStoryLine
+from app.models.launch import Launch, LaunchEvidence, LaunchStoryLine
 from app.schemas.launch import (
     AssignIdeasResponse,
     CheckpointRef,
@@ -27,15 +27,19 @@ from app.schemas.launch import (
     PlanResponse,
     QuestionRef,
     ReferenceResponse,
+    EvidenceOut,
+    EvidenceUpdate,
     ReportOut,
-    SlotMarkupUpdate,
+    SlotCreate,
+    SlotUpdate,
+    TaskOut,
     StageRef,
     StoryLineCreate,
     StoryLineOut,
     StoryLineUpdate,
     TriggerRef,
 )
-from app.services.launch import service
+from app.services.launch import evidence as ev_service, service
 from app.services.launch.methodology import (
     CHECKPOINTS,
     MEANINGS,
@@ -43,10 +47,28 @@ from app.services.launch.methodology import (
     STAGES,
     TRIGGERS,
 )
-from app.services.launch.schedule import LaunchDatesError, plan_windows, validate_dates
+from app.services.launch.schedule import (
+    CHANNEL_REELS,
+    CHANNEL_STORIES,
+    CHANNEL_TELEGRAM,
+    LaunchDatesError,
+    plan_windows,
+    validate_dates,
+)
 from app.services.launch.validators import ORIGIN_HUMAN
 
 router = APIRouter(prefix="/launches", tags=["launches"])
+
+
+def _today() -> Date:
+    return datetime.now(timezone.utc).date()
+
+
+def _out(launch: Launch) -> LaunchOut:
+    """Запуск наружу вместе с посчитанным режимом."""
+    dto = LaunchOut.model_validate(launch)
+    dto.mode = ev_service.launch_mode(launch, _today())
+    return dto
 
 
 async def _owned(db, launch_id: uuid.UUID, org_id: uuid.UUID) -> Launch:
@@ -114,7 +136,7 @@ async def list_launches(
     if not include_archived:
         stmt = stmt.where(Launch.status != "archived")
     rows = await db.scalars(stmt.order_by(Launch.sales_open.desc()))
-    return [LaunchOut.model_validate(r) for r in rows.all()]
+    return [_out(r) for r in rows.all()]
 
 
 @router.post("", response_model=LaunchOut, status_code=status.HTTP_201_CREATED)
@@ -150,16 +172,14 @@ async def create_launch(
     )
     db.add(launch)
     await db.flush()
-    return LaunchOut.model_validate(launch)
+    return _out(launch)
 
 
 @router.get("/{launch_id}", response_model=LaunchOut)
 async def get_launch(
     launch_id: uuid.UUID, current: CurrentUser, db: DbSession
 ) -> LaunchOut:
-    return LaunchOut.model_validate(
-        await _owned(db, launch_id, current.organization_id)
-    )
+    return _out(await _owned(db, launch_id, current.organization_id))
 
 
 @router.patch("/{launch_id}", response_model=LaunchOut)
@@ -186,7 +206,7 @@ async def update_launch(
     for field, value in data.items():
         setattr(launch, field, value)
     await db.flush()
-    return LaunchOut.model_validate(launch)
+    return _out(launch)
 
 
 @router.post("/{launch_id}/archive", response_model=LaunchOut)
@@ -202,7 +222,7 @@ async def archive_launch(
     launch.status = "archived"
     launch.archived_at = datetime.now(timezone.utc)
     await db.flush()
-    return LaunchOut.model_validate(launch)
+    return _out(launch)
 
 
 # ---------------------------------------------------------------------------
@@ -326,19 +346,70 @@ async def get_report(
 # ---------------------------------------------------------------------------
 
 
-@router.patch("/{launch_id}/slots/{slot_id}", response_model=LaunchSlotOut)
-async def update_slot_markup(
+@router.post(
+    "/{launch_id}/slots",
+    response_model=LaunchSlotOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_slot(
     launch_id: uuid.UUID,
-    slot_id: uuid.UUID,
-    payload: SlotMarkupUpdate,
+    payload: SlotCreate,
     current: CurrentUser,
     db: DbSession,
 ) -> LaunchSlotOut:
-    """Подтвердить или поправить разметку слота.
+    """Добавить слот руками.
 
-    Подтверждение человеком — смысловое действие: только после него
-    проверка засчитывает покрытие. Версия сверяется, чтобы правки второго
-    редактора не исчезали молча.
+    Такой слот сразу закрепляется: человек поставил его осознанно, и
+    пересборка плана не должна его смывать. Дата обязана попадать в окно
+    запуска — слот вне оси не показать ни на одном экране.
+    """
+    launch = await _owned(db, launch_id, current.organization_id)
+    if payload.platform not in (CHANNEL_STORIES, CHANNEL_REELS, CHANNEL_TELEGRAM):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Неизвестный канал")
+
+    window = await service.window_for(db, launch, payload.scheduled_date)
+    if window is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Эта дата вне оси запуска. Сначала расширьте окно или пересоберите план.",
+        )
+
+    slot = PlannedPost(
+        organization_id=launch.organization_id,
+        project_id=launch.project_id,
+        launch_id=launch.id,
+        scheduled_date=payload.scheduled_date,
+        platform=payload.platform,
+        status="draft",
+        launch_stage=window.stage,
+        rubric=payload.rubric,
+        meaning=payload.meaning,
+        knowledge_item_id=payload.knowledge_item_id,
+        markup_origin=ORIGIN_HUMAN,
+        is_pinned=True,
+        is_last_day=window.key == "sales" and payload.scheduled_date == window.end,
+        empty_reason=None if payload.knowledge_item_id else "слот добавлен вручную — идею надо выбрать",
+    )
+    db.add(slot)
+    await db.flush()
+    return LaunchSlotOut.model_validate(slot)
+
+
+@router.patch("/{launch_id}/slots/{slot_id}", response_model=LaunchSlotOut)
+async def update_slot(
+    launch_id: uuid.UUID,
+    slot_id: uuid.UUID,
+    payload: SlotUpdate,
+    current: CurrentUser,
+    db: DbSession,
+) -> LaunchSlotOut:
+    """Поправить слот: разметка, перенос, отметки по факту публикации.
+
+    Версия сверяется всегда, когда её прислали: слот правят из нескольких
+    вкладок, и правка второго редактора не должна исчезать молча.
+
+    Перенос меняет этап вместе с датой — иначе слот повиснет между этапами
+    и попадёт не в ту квоту при следующей проверке.
     """
     launch = await _owned(db, launch_id, current.organization_id)
     slot = await db.scalar(
@@ -358,14 +429,135 @@ async def update_slot_markup(
         )
 
     data = payload.model_dump(exclude_unset=True)
-    for field in ("checkpoints", "trigger_key", "has_proof", "is_peak", "is_pinned"):
+
+    if "scheduled_date" in data and data["scheduled_date"] is not None:
+        window = await service.window_for(db, launch, data["scheduled_date"])
+        if window is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Эта дата вне оси запуска"
+            )
+        slot.scheduled_date = data["scheduled_date"]
+        slot.launch_stage = window.stage
+        slot.is_last_day = window.key == "sales" and slot.scheduled_date == window.end
+
+    for field in (
+        "rubric", "meaning", "checkpoints", "trigger_key", "knowledge_item_id",
+        "talking_point_text", "has_proof", "is_peak", "is_pinned",
+        "status", "reaction", "draft_state", "chars", "full_text",
+    ):
         if field in data and data[field] is not None:
             setattr(slot, field, data[field])
+
+    # Идея поставлена — причина «пусто» больше не про этот слот.
+    if data.get("knowledge_item_id") or data.get("talking_point_text"):
+        slot.empty_reason = None
+
     if payload.confirm:
         slot.markup_origin = ORIGIN_HUMAN
+
     slot.version = (slot.version or 1) + 1
     await db.flush()
     return LaunchSlotOut.model_validate(slot)
+
+
+@router.delete(
+    "/{launch_id}/slots/{slot_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_slot(
+    launch_id: uuid.UUID,
+    slot_id: uuid.UUID,
+    current: CurrentUser,
+    db: DbSession,
+) -> None:
+    """Убрать слот.
+
+    Опубликованное не удаляется: это уже история запуска, и разбор считает
+    по ней. Такой слот можно только отметить пропущенным.
+    """
+    launch = await _owned(db, launch_id, current.organization_id)
+    slot = await db.scalar(
+        select(PlannedPost).where(
+            PlannedPost.id == slot_id,
+            PlannedPost.launch_id == launch.id,
+        )
+    )
+    if slot is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Слот не найден")
+    if slot.status == "published":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Опубликованный слот не удаляется: на нём стоит разбор. "
+            "Отметьте его пропущенным, если пост не выходил.",
+        )
+    await db.delete(slot)
+    await db.flush()
+
+
+# ---------------------------------------------------------------------------
+# Фактура
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{launch_id}/evidence", response_model=list[EvidenceOut])
+async def get_evidence(
+    launch_id: uuid.UUID, current: CurrentUser, db: DbSession
+) -> list[EvidenceOut]:
+    """Состояние всех сорока смыслов.
+
+    Возвращаются все, а не только сохранённые: отсутствие строки — это
+    «нечем доказать», и клиент не должен догадываться об этом сам.
+    """
+    launch = await _owned(db, launch_id, current.organization_id)
+    saved = await ev_service.load_evidence(db, launch.id)
+    out: list[EvidenceOut] = []
+    for c in CHECKPOINTS:
+        row = saved.get(c.key)
+        out.append(
+            EvidenceOut.model_validate(row)
+            if row is not None
+            else EvidenceOut(meaning_key=c.key, state=ev_service.STATE_NONE)
+        )
+    return out
+
+
+@router.patch("/{launch_id}/evidence/{meaning_key}", response_model=EvidenceOut)
+async def update_evidence(
+    launch_id: uuid.UUID,
+    meaning_key: str,
+    payload: EvidenceUpdate,
+    current: CurrentUser,
+    db: DbSession,
+) -> EvidenceOut:
+    """Проставить состояние смысла."""
+    launch = await _owned(db, launch_id, current.organization_id)
+    try:
+        row = await ev_service.set_evidence(
+            db,
+            launch.id,
+            meaning_key,
+            state=payload.state,
+            proof_note=payload.proof_note,
+            proof_url=payload.proof_url,
+            task_dismissed=payload.task_dismissed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    return EvidenceOut.model_validate(row)
+
+
+@router.get("/{launch_id}/tasks", response_model=list[TaskOut])
+async def get_tasks(
+    launch_id: uuid.UUID, current: CurrentUser, db: DbSession
+) -> list[TaskOut]:
+    """Задачи на добычу фактуры.
+
+    Не хранятся: это незакрытые смыслы плюс дедлайн от первого дня плана,
+    где смысл понадобится. Считаются на каждый запрос, поэтому не могут
+    разойтись с фактурой.
+    """
+    launch = await _owned(db, launch_id, current.organization_id)
+    rows = await ev_service.tasks_for(db, launch)
+    return [TaskOut(**r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -412,6 +604,13 @@ async def update_story_line(
     current: CurrentUser,
     db: DbSession,
 ) -> StoryLineOut:
+    """Поправить линию, в том числе привязать анонс и раскрытие к постам.
+
+    `is_closed` здесь не поле ввода, а следствие: линия закрыта тогда и
+    только тогда, когда под раскрытие стоит конкретный слот и он не позже
+    закрытия продаж. Дать это поле снаружи значило бы разрешить пометить
+    закрытым обещание, которого никто не увидит.
+    """
     launch = await _owned(db, launch_id, current.organization_id)
     line = await db.scalar(
         select(LaunchStoryLine).where(
@@ -420,9 +619,45 @@ async def update_story_line(
         )
     )
     if line is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Сюжетная линия не найдена")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(line, field, value)
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Линия не найдена")
+
+    data = payload.model_dump(exclude_unset=True)
+
+    for field in ("announce_slot_id", "close_slot_id"):
+        if field not in data:
+            continue
+        slot_id = data[field]
+        if slot_id is not None:
+            slot = await db.scalar(
+                select(PlannedPost).where(
+                    PlannedPost.id == slot_id,
+                    PlannedPost.launch_id == launch.id,
+                )
+            )
+            if slot is None:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "Слот не найден в этом запуске",
+                )
+            # Дата линии следует за постом, а не наоборот.
+            if field == "announce_slot_id":
+                line.announced_on = slot.scheduled_date
+                slot.line_role = "announce"
+            else:
+                line.closes_on = slot.scheduled_date
+                slot.line_role = "close"
+            slot.story_line_id = line.id
+        setattr(line, field, slot_id)
+
+    for field in ("title", "payoff", "announced_on", "closes_on"):
+        if field in data and data[field] is not None:
+            setattr(line, field, data[field])
+
+    line.is_closed = bool(line.close_slot_id) and (
+        launch.sales_close is None
+        or line.closes_on is None
+        or line.closes_on <= launch.sales_close
+    )
     await db.flush()
     return StoryLineOut.model_validate(line)
 

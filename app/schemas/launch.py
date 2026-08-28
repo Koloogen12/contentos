@@ -71,6 +71,22 @@ class LaunchOut(BaseModel):
     archived_at: datetime | None
     created_at: datetime
 
+    #: Рамка запуска.
+    price: str | None = None
+    audience: str | None = None
+    collect: str | None = None
+    waitlist: int | None = None
+    paid: int | None = None
+    paid_goal: int | None = None
+    unrolled_on: Date | None = None
+
+    #: Режим запуска: черновик · прогрев идёт · окно продаж · закрыт.
+    #:
+    #: Считается, а не хранится: всё, кроме черновика, однозначно выводится
+    #: из дат. Клиенту отдаётся готовым, чтобы четыре места в интерфейсе не
+    #: вывели его четырьмя способами.
+    mode: str = "draft"
+
 
 # ---------------------------------------------------------------------------
 # План
@@ -95,6 +111,9 @@ class LaunchSlotOut(BaseModel):
     platform: str
     status: str
     launch_stage: int | None
+    #: Рубрика конструктора (одна из двенадцати).
+    rubric: str | None
+    #: Смысл покупателя (один из сорока).
     meaning: str | None
     trigger_key: str | None
     checkpoints: list[str]
@@ -109,6 +128,12 @@ class LaunchSlotOut(BaseModel):
     full_text: str
     #: Почему слот пуст — показывается пользователю дословно.
     notes: str | None
+    empty_reason: str | None = None
+    draft_state: str | None = None
+    chars: int | None = None
+    reaction: int | None = None
+    line_role: str | None = None
+    story_line_id: uuid.UUID | None = None
     version: int
 
 
@@ -179,6 +204,13 @@ class StoryLineCreate(BaseModel):
 
 
 class StoryLineUpdate(BaseModel):
+    #: Посты, которыми линия открывается и закрывается.
+    #:
+    #: Именно они, а не даты, определяют, закрыта линия или нет: дата в
+    #: календаре ничего не обещает аудитории, пост обещает.
+    announce_slot_id: uuid.UUID | None = None
+    close_slot_id: uuid.UUID | None = None
+
     title: str | None = Field(default=None, min_length=1, max_length=255)
     payoff: str | None = None
     announced_on: Date | None = None
@@ -196,6 +228,8 @@ class StoryLineOut(BaseModel):
     announced_on: Date | None
     closes_on: Date | None
     is_closed: bool
+    announce_slot_id: uuid.UUID | None = None
+    close_slot_id: uuid.UUID | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -252,19 +286,92 @@ class ReferenceResponse(BaseModel):
     questions: list[QuestionRef]
 
 
-class SlotMarkupUpdate(BaseModel):
-    """Подтверждение разметки человеком.
+class SlotUpdate(BaseModel):
+    """Правка слота: разметка, перенос, отметки по факту публикации.
 
-    Отдельная ручка, а не общий PATCH: подтверждение — это смысловое
-    действие, после которого проверка начинает засчитывать покрытие.
+    Одна ручка на всё, но `confirm` остаётся отдельным флагом: подтверждение
+    разметки — смысловое действие, после которого проверка начинает
+    засчитывать покрытие, и оно не должно случайно проезжать вместе с
+    переносом даты.
+
+    `version` обязателен для всех правок, кроме чтения: слот правят из
+    нескольких вкладок, и молча перетирать чужое нельзя.
     """
 
+    scheduled_date: Date | None = None
+    rubric: str | None = None
+    meaning: str | None = None
     checkpoints: list[str] | None = None
     trigger_key: str | None = None
+    knowledge_item_id: uuid.UUID | None = None
+    talking_point_text: str | None = None
     has_proof: bool | None = None
     is_peak: bool | None = None
     is_pinned: bool | None = None
-    confirm: bool = True
+
+    #: Ведение запуска.
+    status: str | None = None
+    reaction: int | None = Field(default=None, ge=1, le=3)
+    draft_state: str | None = None
+    chars: int | None = None
+    full_text: str | None = None
+
+    confirm: bool = False
+    version: int | None = None
+
+
+#: Старое имя ручки. Оставлено, чтобы не ломать вызовы, которые уже есть.
+SlotMarkupUpdate = SlotUpdate
+
+
+class SlotCreate(BaseModel):
+    """Слот, добавленный руками.
+
+    Такой слот сразу закрепляется: человек поставил его осознанно, и
+    пересборка плана не должна его смывать.
+    """
+
+    scheduled_date: Date
+    platform: str
+    rubric: str | None = None
+    meaning: str | None = None
+    knowledge_item_id: uuid.UUID | None = None
+
+
+class EvidenceOut(BaseModel):
+    """Состояние одного смысла покупателя."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    meaning_key: str
+    state: str
+    proof_note: str | None = None
+    proof_url: str | None = None
+    task_dismissed: bool = False
+
+
+class EvidenceUpdate(BaseModel):
+    state: str = Field(pattern="^(proof|claimed|none)$")
+    proof_note: str | None = None
+    proof_url: str | None = None
+    task_dismissed: bool | None = None
+
+
+class TaskOut(BaseModel):
+    """Задача на добычу фактуры.
+
+    Не хранится: это состояние `none` плюс дедлайн, посчитанный от первого
+    дня плана, где смысл понадобится. Вторая копия того же факта разошлась бы
+    с фактурой на первой же правке.
+    """
+
+    meaning_key: str
+    title: str
+    question: int
+    #: К какому дню нужно успеть — за два дня до первого слота с этим смыслом.
+    needed_by: Date | None
+    #: Дни плана, где смысл стоит.
+    slot_dates: list[Date]
     #: Версия слота, которую правил клиент. Защита от молчаливой потери
     #: чужих правок, когда план ведут вдвоём.
     version: int | None = None

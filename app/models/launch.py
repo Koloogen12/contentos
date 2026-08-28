@@ -22,6 +22,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -50,7 +52,7 @@ class Launch(Base, TimestampMixin):
             name="ck_launches_status",
         ),
         CheckConstraint(
-            "intensity IN ('light','normal','heavy')",
+            "intensity IN ('light','normal','heavy','dense')",
             name="ck_launches_intensity",
         ),
         # Даты, которые противоречат друг другу, ломают всю раскладку —
@@ -115,6 +117,27 @@ class Launch(Base, TimestampMixin):
     #: моменту открытия. Продажи собираются лестницей, а не одной кнопкой.
     waitlist_goal: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    #: Рамка запуска: то, что автор держит в голове и обязан видеть на экране.
+    price: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    audience: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: Как собираем заявки — бот, ключевое слово, форма.
+    collect: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    #: Факт против цели. Обе пары нужны раздельно: до окна считаем заявки,
+    #: внутри окна — оплаты, и это разные воронки.
+    waitlist: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    paid: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    paid_goal: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    #: День, когда план развернули.
+    #:
+    #: Единственная часть статуса, которую нельзя вывести из дат: «черновик»
+    #: отличается от «прогрев идёт» именно наличием плана. Остальные состояния
+    #: (окно продаж, закрыт, в архиве) считаются из sales_open / sales_close /
+    #: archived_at — хранить их копию значит гарантировать расхождение при
+    #: первом же переносе окна.
+    unrolled_on: Mapped[Date | None] = mapped_column(SaDate, nullable=True)
+
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -148,3 +171,70 @@ class LaunchStoryLine(Base, TimestampMixin):
     announced_on: Mapped[Date | None] = mapped_column(SaDate, nullable=True)
     closes_on: Mapped[Date | None] = mapped_column(SaDate, nullable=True)
     is_closed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    #: Посты, которыми линия открывается и закрывается.
+    #:
+    #: Линия считается закрытой, только когда под раскрытие стоит конкретный
+    #: слот: дата в календаре ничего не обещает аудитории, пост обещает.
+    #: SET NULL при удалении слота — обещание остаётся, просто снова
+    #: становится незакрытым.
+    announce_slot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("planned_posts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    close_slot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("planned_posts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+
+class LaunchEvidence(Base):
+    """Фактура запуска: чем закрывается конкретный смысл покупателя.
+
+    Одна строка на пару (запуск, смысл). Отдельная таблица, а не JSONB на
+    запуске: главный вопрос к этим данным — «где у нас нет пруфов по третьему
+    вопросу», и он должен отвечаться индексом, а не разбором документа на
+    стороне приложения.
+
+    Задачи на добычу здесь не хранятся. Задача — это ровно состояние `none`
+    плюс дедлайн, посчитанный от дня, где смысл понадобится по плану. Держать
+    её отдельной записью значит завести вторую копию того же факта и
+    расхождение между ними. Персистится только то, что не вычисляется:
+    `task_dismissed`.
+    """
+
+    __tablename__ = "launch_evidence"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('proof','claimed','none')", name="ck_launch_evidence_state"
+        ),
+        Index(
+            "idx_launch_evidence_open",
+            "launch_id",
+            "state",
+            postgresql_where=text("state <> 'proof'"),
+        ),
+    )
+
+    launch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("launches.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    #: Ключ смысла из справочника методологии (сорок штук).
+    meaning_key: Mapped[str] = mapped_column(String(50), primary_key=True)
+
+    #: `proof` — есть чем показать · `claimed` — заявлено словами ·
+    #: `none` — нечем доказать. В покрытие идёт только `proof`.
+    state: Mapped[str] = mapped_column(String(20), default="none", nullable=False)
+    proof_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    proof_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    task_dismissed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

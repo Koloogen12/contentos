@@ -81,6 +81,36 @@ def _slot_view(post: PlannedPost) -> SlotView:
     )
 
 
+async def window_for(
+    db: AsyncSession, launch: Launch, day: Date
+) -> schedule.StageWindow | None:
+    """Этап, в который попадает дата.
+
+    Нужен при переносе и добавлении слота: дата без этапа означает слот вне
+    оси, а такой слот не показать ни на одном экране и не посчитать ни одной
+    квотой. Окна берутся из тех же длительностей, что и при разворачивании
+    плана, поэтому ручной перенос и пересборка видят одну и ту же ось.
+
+    Опорная дата — день разворота, а не сегодня: иначе у давно собранного
+    запуска окна «уползали» бы вперёд с каждым днём, и вчерашний слот вдруг
+    оказывался бы вне оси.
+    """
+    try:
+        plan = schedule.plan_windows(
+            sales_open=launch.sales_open,
+            sales_close=launch.sales_close,
+            key_event=launch.key_event_date,
+            today=launch.unrolled_on or _today(),
+            durations={int(k): v for k, v in (launch.durations or {}).items()},
+        )
+    except schedule.LaunchDatesError:
+        return None
+    for w in plan.windows:
+        if w.start <= day <= w.end:
+            return w
+    return None
+
+
 async def generate_plan(
     db: AsyncSession,
     launch: Launch,

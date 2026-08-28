@@ -11,9 +11,11 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     Time as SaTime,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -36,7 +38,7 @@ class PlannedPost(Base, TimestampMixin):
             name="ck_planned_posts_platform",
         ),
         CheckConstraint(
-            "status IN ('draft','ready','scheduled','published','skipped')",
+            "status IN ('draft','ready','scheduled','published','skipped','missed')",
             name="ck_planned_posts_status",
         ),
         CheckConstraint(
@@ -49,6 +51,24 @@ class PlannedPost(Base, TimestampMixin):
         Index("idx_planned_posts_platform", "platform"),
         Index("idx_planned_posts_pillar", "pillar"),
         Index("idx_planned_posts_launch", "launch_id"),
+        CheckConstraint(
+            "draft_state IS NULL OR draft_state IN ('writing','ready')",
+            name="ck_planned_posts_draft_state",
+        ),
+        CheckConstraint(
+            "reaction IS NULL OR reaction BETWEEN 1 AND 3",
+            name="ck_planned_posts_reaction",
+        ),
+        CheckConstraint(
+            "line_role IS NULL OR line_role IN ('announce','close')",
+            name="ck_planned_posts_line_role",
+        ),
+        Index(
+            "idx_planned_posts_launch_date",
+            "launch_id",
+            "scheduled_date",
+            postgresql_where=text("launch_id IS NOT NULL"),
+        ),
         CheckConstraint(
             "markup_origin IS NULL OR markup_origin IN ('rule','llm','human')",
             name="ck_planned_posts_markup_origin",
@@ -156,4 +176,31 @@ class PlannedPost(Base, TimestampMixin):
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     #: Оптимистичная блокировка: эксперт и продюсер правят один план, и без
     #: версии чужая работа исчезает молча.
+    #: Рубрика конструктора — одна из двенадцати.
+    #:
+    #: До миграции 0018 рубрика лежала в колонке `meaning`, а смыслы
+    #: покупателя в массиве `checkpoints`. Читалось это ровно наоборот тому,
+    #: что написано в методологии, поэтому имена разведены: двенадцать
+    #: рубрик — `rubric`, сорок смыслов — `meaning`.
+    rubric: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    #: Состояние текста. `writing` — задание ушло на канвас, `ready` — текст
+    #: вернулся. Нужно, чтобы «без текста» было фильтром, а не догадкой.
+    draft_state: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    chars: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    #: Как зашло: 1 не зашло · 2 норм · 3 зашло. На этих отметках стоит весь
+    #: разбор, поэтому неотмеченные посты в статистику не идут.
+    reaction: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+
+    #: Роль в сюжетной линии: анонс или раскрытие.
+    line_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    #: Почему слот пуст — дословно, как посчитал подбор.
+    #:
+    #: Хранится, а не собирается на лету: причина зависит от состояния банка
+    #: в момент разворота, и через неделю пересчёт даст другую формулировку,
+    #: а человек будет смотреть на слот и не понимать, что изменилось.
+    empty_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
