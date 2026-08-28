@@ -1,0 +1,1354 @@
+<title>Конструктор прогревов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ground:#EDF1F0;
+  --surface:#FFFFFF;
+  --surface-2:#E4EAE9;
+  --ink:#0F1519;
+  --ink-2:#33424A;
+  --muted:#5E7076;
+  --line:#CFD9D8;
+  --line-soft:#DEE6E5;
+  --accent:#0D8F84;
+  --accent-ink:#07635B;
+  --accent-wash:#DCEDEA;
+  --critical:#B3401A;
+  --critical-wash:#F6E2D9;
+  --warn:#8A6212;
+  --warn-wash:#F2E9D4;
+  --ok:#3F7A33;
+  --ok-wash:#E1EDDC;
+
+  --f-display:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+
+  --measure:68ch;
+  --r:3px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1417;
+    --surface:#151D21;
+    --surface-2:#1B252A;
+    --ink:#E6EDEC;
+    --ink-2:#BCCBCB;
+    --muted:#8CA0A2;
+    --line:#2A383D;
+    --line-soft:#222E33;
+    --accent:#3FBFAF;
+    --accent-ink:#7FD8CB;
+    --accent-wash:#12302E;
+    --critical:#E27A50;
+    --critical-wash:#3A2118;
+    --warn:#D3A54A;
+    --warn-wash:#332815;
+    --ok:#7CB86A;
+    --ok-wash:#1B2B18;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1417;
+  --surface:#151D21;
+  --surface-2:#1B252A;
+  --ink:#E6EDEC;
+  --ink-2:#BCCBCB;
+  --muted:#8CA0A2;
+  --line:#2A383D;
+  --line-soft:#222E33;
+  --accent:#3FBFAF;
+  --accent-ink:#7FD8CB;
+  --accent-wash:#12302E;
+  --critical:#E27A50;
+  --critical-wash:#3A2118;
+  --warn:#D3A54A;
+  --warn-wash:#332815;
+  --ok:#7CB86A;
+  --ok-wash:#1B2B18;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:17px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{
+  max-width:1180px;
+  margin:0 auto;
+  padding:0 24px 96px;
+  display:grid;
+  grid-template-columns:210px minmax(0,1fr);
+  gap:56px;
+  align-items:start;
+}
+@media (max-width:900px){
+  .wrap{grid-template-columns:minmax(0,1fr);gap:0;padding:0 18px 64px}
+  nav.toc{position:static !important;border-right:0 !important;padding:20px 0 0 !important;margin-bottom:8px}
+}
+
+/* ---------- masthead ---------- */
+header.top{
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+}
+.top-inner{
+  max-width:1180px;margin:0 auto;padding:34px 24px 30px;
+}
+.eyebrow{
+  font-family:var(--f-mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0 0 14px;
+}
+h1{
+  font-family:var(--f-display);
+  font-weight:700;
+  font-size:clamp(30px,4.4vw,46px);
+  line-height:1.08;
+  letter-spacing:-.02em;
+  margin:0 0 12px;
+  text-wrap:balance;
+}
+.sub{
+  font-size:18px;color:var(--ink-2);margin:0;max-width:62ch;
+}
+.meta{
+  margin-top:20px;display:flex;flex-wrap:wrap;gap:8px 10px;
+  font-family:var(--f-mono);font-size:11.5px;letter-spacing:.04em;
+}
+.tag{
+  border:1px solid var(--line);border-radius:99px;padding:4px 11px;color:var(--muted);
+  background:var(--ground);
+}
+.tag.hot{border-color:var(--critical);color:var(--critical);background:var(--critical-wash)}
+.tag.on{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-wash)}
+
+/* ---------- toc ---------- */
+nav.toc{
+  position:sticky;top:0;
+  padding:36px 0 24px;
+  border-right:1px solid var(--line-soft);
+  font-family:var(--f-display);
+  font-size:13.5px;
+}
+nav.toc .lvl{
+  font-family:var(--f-mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);margin:20px 0 7px;
+}
+nav.toc .lvl:first-child{margin-top:0}
+nav.toc a{
+  display:block;color:var(--ink-2);text-decoration:none;padding:3px 0;
+  border-left:2px solid transparent;padding-left:10px;margin-left:-12px;
+}
+nav.toc a:hover{color:var(--accent-ink);border-left-color:var(--accent)}
+nav.toc a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- content ---------- */
+main{padding-top:36px;min-width:0}
+section{margin:0 0 12px;scroll-margin-top:16px}
+h2{
+  font-family:var(--f-display);font-weight:600;
+  font-size:clamp(23px,2.7vw,30px);line-height:1.18;letter-spacing:-.015em;
+  margin:56px 0 16px;text-wrap:balance;
+}
+h3{
+  font-family:var(--f-display);font-weight:600;font-size:19px;line-height:1.3;
+  margin:36px 0 10px;letter-spacing:-.008em;text-wrap:balance;
+}
+h4{
+  font-family:var(--f-display);font-weight:600;font-size:15.5px;margin:26px 0 8px;
+}
+p{margin:0 0 15px;max-width:var(--measure)}
+ul,ol{max-width:var(--measure);padding-left:22px;margin:0 0 16px}
+li{margin:0 0 7px}
+a{color:var(--accent-ink);text-underline-offset:2px}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+strong{font-weight:600}
+code{
+  font-family:var(--f-mono);font-size:.88em;background:var(--surface-2);
+  padding:1px 5px;border-radius:var(--r);
+}
+
+.layer-head{
+  border-top:2px solid var(--ink);
+  margin-top:64px;padding-top:16px;
+}
+.layer-head .lnum{
+  font-family:var(--f-mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--accent-ink);display:block;margin-bottom:8px;
+}
+.layer-head h2{margin-top:0}
+.layer-head .what{color:var(--muted);font-size:15.5px;max-width:60ch;margin:0}
+
+.callout{
+  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:var(--r);padding:16px 18px;margin:0 0 20px;max-width:var(--measure);
+}
+.callout.risk{border-left-color:var(--critical)}
+.callout.note{border-left-color:var(--muted)}
+.callout p:last-child{margin-bottom:0}
+.callout .ct{
+  font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.02em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 7px;
+}
+
+.disc{
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 16px;font-size:14.5px;color:var(--ink-2);margin:0 0 10px;max-width:var(--measure);
+}
+.disc p{margin:0 0 7px;font-size:14.5px}
+.disc p:last-child{margin:0}
+
+.drill{
+  font-family:var(--f-display);font-size:13px;color:var(--accent-ink);
+  text-decoration:none;white-space:nowrap;
+}
+.drill:hover{text-decoration:underline}
+
+.kv{
+  display:grid;grid-template-columns:minmax(120px,180px) minmax(0,1fr);
+  gap:2px 20px;max-width:var(--measure);margin:0 0 18px;
+  border-top:1px solid var(--line-soft);
+}
+.kv dt{
+  font-family:var(--f-mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);padding:11px 0 0;border-top:1px solid var(--line-soft);
+}
+.kv dd{margin:0;padding:9px 0 10px;border-top:1px solid var(--line-soft)}
+.kv dt:first-of-type,.kv dd:first-of-type{border-top:0}
+
+.tw{overflow-x:auto;margin:0 0 22px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-family:var(--f-display);font-size:14px;line-height:1.45}
+th,td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{
+  font-weight:600;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);background:var(--surface-2);white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.gloss{display:block;font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);margin-top:2px}
+
+.sev{
+  font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 7px;border-radius:99px;white-space:nowrap;border:1px solid;
+}
+.sev.c{color:var(--critical);border-color:var(--critical);background:var(--critical-wash)}
+.sev.h{color:var(--warn);border-color:var(--warn);background:var(--warn-wash)}
+.sev.m{color:var(--muted);border-color:var(--line);background:var(--surface-2)}
+.sev.l{color:var(--muted);border-color:var(--line-soft);background:transparent}
+.sev.ok{color:var(--ok);border-color:var(--ok);background:var(--ok-wash)}
+
+details{
+  border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
+  padding:0;margin:0 0 12px;
+}
+details[open]{background:var(--surface)}
+summary{
+  cursor:pointer;padding:13px 16px;font-family:var(--f-display);font-weight:600;font-size:15px;
+  list-style:none;display:flex;align-items:center;gap:10px;
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"+";font-family:var(--f-mono);color:var(--accent);font-size:15px;line-height:1;
+}
+details[open] summary::before{content:"–"}
+summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.dbody{padding:0 16px 14px}
+.dbody > :last-child{margin-bottom:0}
+
+.trace{
+  font-family:var(--f-mono);font-size:11.5px;line-height:1.55;color:var(--muted);
+  background:var(--surface-2);border-radius:var(--r);padding:9px 12px;margin:12px 0 0;
+  max-width:var(--measure);
+}
+
+/* launch axis figure */
+.axis{margin:22px 0 26px;max-width:100%;overflow-x:auto}
+.axis svg{display:block;min-width:640px}
+
+.req{
+  border-top:1px solid var(--line);padding-top:16px;margin-top:20px;
+}
+.req .rid{
+  font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;color:var(--accent-ink);
+  text-transform:uppercase;
+}
+.req h4{margin:5px 0 7px}
+.ac{
+  font-size:15px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line-soft);
+  border-radius:var(--r);padding:11px 14px;max-width:var(--measure);margin:10px 0 0;
+}
+.ac b{font-family:var(--f-display);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px;font-weight:600}
+
+hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+.small{font-size:14.5px;color:var(--muted)}
+footer{
+  border-top:1px solid var(--line);margin-top:56px;padding-top:20px;
+  font-family:var(--f-display);font-size:13.5px;color:var(--muted);
+}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+
+<header class="top">
+  <div class="top-inner">
+    <p class="eyebrow">Product requirements · ContentOS</p>
+    <h1>Конструктор прогревов</h1>
+    <p class="sub">Модуль внутри ContentOS, который собирает прогрев к дате запуска и — главное — находит в нём дыры, которые стоят продаж.</p>
+    <div class="meta">
+      <span class="tag">28 августа 2026</span>
+      <span class="tag">Сегмент: эксперты с повторяющимися запусками</span>
+      <span class="tag on">Горизонт: 1 неделя</span>
+      <span class="tag hot">Сегмент не проверен</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <div class="lvl">Уровень 1</div>
+  <a href="#layer-1">Что строим</a>
+  <div class="lvl">Уровень 2</div>
+  <a href="#l2-input-risks">Что дано и риски</a>
+  <a href="#l2-build">Стоит ли строить</a>
+  <a href="#l2-users">Для кого и когда «вау»</a>
+  <a href="#l2-capabilities">Что должно уметь</a>
+  <a href="#l2-failures">Где ломается</a>
+  <a href="#l2-risk">Главный риск</a>
+  <div class="lvl">Уровень 3</div>
+  <a href="#l3-challenge">0 · Решение о стройке</a>
+  <a href="#l3-overview">1 · Обзор</a>
+  <a href="#l3-users">2 · Пользователи</a>
+  <a href="#l3-fix">3 · Починка методологии</a>
+  <a href="#l3-requirements">4 · Требования</a>
+  <a href="#l3-data">5 · Модель данных</a>
+  <a href="#l3-edge">6 · Пограничные случаи</a>
+  <a href="#l3-parity">7 · Конкуренты</a>
+  <a href="#l3-metrics">8 · Метрики</a>
+  <a href="#l3-risk">9 · Риски и вне рамок</a>
+  <a href="#checklist">Проверка</a>
+</nav>
+
+<main>
+
+<section id="disclaimers">
+  <div class="disc">
+    <p><strong>Про цифры.</strong> Все числовые оценки здесь — гипотезы, сгенерированные языковой моделью, у каждой есть способ проверки. Проверяйте до крупных решений.</p>
+    <p><strong>Про галлюцинации.</strong> Документ написан языковой моделью и может содержать ошибки в неизвестных местах. Для дорогих решений проводите полноценное исследование, не полагайтесь на один этот документ.</p>
+    <p>⚠️ Сегмент и ценность взяты <strong>из описания и материалов одного заказчика</strong>, а не из исследования рынка. Это снижает достоверность всего документа. Челлендж-гейт изменил предмет стройки: см. <a href="#l3-challenge">решение о стройке</a>.</p>
+  </div>
+</section>
+
+<section id="howto">
+  <h2 style="margin-top:34px">Как это читать</h2>
+  <p>Три уровня — спускайтесь настолько глубоко, насколько нужно.</p>
+  <ul>
+    <li><strong>Уровень 1 — что строим</strong> (одна страница, простыми словами): что это, для кого, момент, доказывающий работу, что проверить первым, с чего начать. Большинству хватит этого. <a class="drill" href="#layer-1">перейти ▸</a></li>
+    <li><strong>Уровень 2 — рассуждение</strong>: почему именно так, а не иначе. <a class="drill" href="#layer-2">перейти ▸</a></li>
+    <li><strong>Уровень 3 — полная спека</strong>: требования, модель данных, пограничные случаи, метрики, риски. То, по чему строят. <a class="drill" href="#layer-3">перейти ▸</a></li>
+  </ul>
+</section>
+
+<!-- ================= LAYER 1 ================= -->
+<div class="layer-head" id="layer-1">
+  <span class="lnum">Уровень 1</span>
+  <h2>Что строим</h2>
+  <p class="what">Одна страница. Её можно переслать со-фаундеру, который ничего не знает про методологию.</p>
+</div>
+
+<section>
+  <div class="callout risk">
+    <p class="ct">Долг по проверке</p>
+    <p>Документ стоит на <strong>8 непроверенных допущениях</strong>, из них <strong>3 смертельны</strong> — если они неверны, модуль не нужен. Главное из них: <em>мы ни разу не спрашивали у эксперта с запусками, готов ли он платить за это.</em> Проверять в поле параллельно стройке. <a class="drill" href="#l2-risk">все допущения ▸</a></p>
+  </div>
+
+  <h3>Что это</h3>
+  <p>Пространство запуска внутри ContentOS. Эксперт вводит дату открытия продаж — система разворачивает календарь назад по семи этапам прогрева, раскладывает по дням, какой смысл в какой день должен прозвучать, подбирает под каждый день идею из его же банка идей и <strong>показывает, чего в прогреве не хватает</strong>: какой смысл не закрыт ни одним постом, какой психологический рычаг не задействован ни разу, где банк идей не покрывает план. <a class="drill" href="#l2-build">почему именно так ▸</a></p>
+
+  <h3>Для кого</h3>
+  <p>Эксперт, который делает запуски своего обучающего продукта два и более раз в год, продаёт через контент в собственном блоге, и для которого запуск — основная выручка года. Не «инфобизнесмен вообще»: важна именно повторяемость запусков и высокая цена ошибки. <a class="drill" href="#l2-users">кто это и почему они ▸</a></p>
+
+  <h3>Момент, который доказывает, что оно работает</h3>
+  <p>Человек подключает свой канал, ещё ничего не построив, и через минуту видит: <em>«За 42 дня прогрева ты ни разу не показал, что у тебя не получалось. Аудитория не поверит, что получится у неё»</em> — с указанием, в какие дни это лечится. Он ждал ещё один календарь, а получил диагноз, которого сам не видел. <a class="drill" href="#l2-users">где этот момент в потоке ▸</a></p>
+
+  <h3>Что проверить до стройки — одно, самое рискованное</h3>
+  <p>Что эксперт вообще считает планирование прогрева своей болью. По разбору материалов заказчика узкое место у него было не в плане, а в монтаже: идей 498, снятого больше, чем успевают смонтировать. Если это общая черта сегмента — мы строим красивое решение не той задачи. <strong>Самая дешёвая проверка: 5 разговоров по 30 минут</strong> с экспертами, к которым доступ уже есть. <a class="drill" href="#l2-risk">полная картина рисков ▸</a></p>
+
+  <h3>С чего начать</h3>
+  <p>Первая неделя — сущность запуска, справочники методологии, генератор раскладки и три валидатора, отдающие находки текстом. Без этого модуль — просто календарь; с этим он уже отвечает на вопрос, ради которого его открывают. <a class="drill" href="#l3-requirements">полная спека ▸</a></p>
+</section>
+
+<!-- ================= LAYER 2 ================= -->
+<div class="layer-head" id="layer-2">
+  <span class="lnum">Уровень 2</span>
+  <h2>Почему мы строим именно это</h2>
+  <p class="what">Логика решения простым языком. Полная спека, таблицы и методология — уровнем ниже.</p>
+</div>
+
+<section id="l2-input-risks">
+  <h3>Что мне дали — и какие риски я в этом вижу</h3>
+  <p>Всё, что пришло на вход — материалы заказчика, методология, оценка рынка — я держал как гипотезу, а не как факт. Вот на что опирается документ и что я бы проверил.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr>
+      <th>Что дано<span class="gloss">и как это помечено</span></th>
+      <th>Как использовал</th>
+      <th>Риск, который я вижу</th>
+      <th>Как проверить быстро</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td>«Инфобиз — большой сегмент, мы хорошо зайдём»<br><span class="small">догадка</span></td>
+        <td>Основание для выбора сегмента и всей бизнес-цели</td>
+        <td>Размер рынка ≠ наш сегмент. Внутри инфобиза те, кто продаёт через контент блога, и те, кто льёт трафик на вебинар — <strong>разные сегменты с разными задачами</strong>. Мы описали первых, а «большой рынок» считается по обоим</td>
+        <td>5 интервью: как именно вы продавали последний запуск — контентом в блоге или платным трафиком?</td>
+      </tr>
+      <tr>
+        <td>Методология из 6 уроков (7 этапов, 36 смыслов, 18 триггеров)<br><span class="small">наблюдение</span></td>
+        <td>Ядро справочников и валидаторов</td>
+        <td>Это методология <strong>одного автора для одной ниши</strong> (Instagram-сторис, инфобиз СНГ). Часть нормативов не переносится: «15–20 сторис в день» бессмысленно для B2B-запуска</td>
+        <td>Дать чек-лист двум экспертам из разных ниш: сколько пунктов они считают применимыми у себя</td>
+      </tr>
+      <tr>
+        <td>Банк из 536 идей как доказательство, что механика работает<br><span class="small">данные</span></td>
+        <td>Оценка объёма банка и покрытия</td>
+        <td>Записей на деле <strong>498</strong>, разметка проставлена регулярными выражениями, а не человеком. Автор сам пишет: «её надо вычитывать, а не принимать на веру». Дефицит по «Ажиотажу», который показывает его инструмент, — <strong>артефакт регулярки</strong>, а не реальная нехватка идей</td>
+        <td>Взять 30 случайных идей и проверить разметку вручную — какая доля верна</td>
+      </tr>
+      <tr>
+        <td>Инструмент заказчика как образец<br><span class="small">данные</span></td>
+        <td>Источник алгоритма раскладки</td>
+        <td>Он <strong>не замкнул цикл</strong>: 75 слотов календаря пусты, подбор идеи под слот выключен флагом в коде, метрики и ссылки на публикации не заполнены ни разу. Мы рискуем скопировать демонстрацию, а не рабочий процесс</td>
+        <td>Спросить заказчика: сколько раз он реально провёл запуск по этому файлу</td>
+      </tr>
+      <tr>
+        <td>«Сделаешь за пару дней, это изи»<br><span class="small">догадка</span></td>
+        <td>Горизонт в одну неделю</td>
+        <td>Выполнимо только потому, что мы переиспользуем существующие сущности. <strong>Интерфейс — не «изи»</strong>: календарь запуска, банк, экран проверки. Риск — выкатить бэкенд без лица</td>
+        <td>Порезать интерфейс до одного экрана в первой итерации и признать это явно</td>
+      </tr>
+      <tr>
+        <td>Деление «прогрев личности / прогрев темы»<br><span class="small">догадка</span></td>
+        <td>Не использовал</td>
+        <td>Этого деления <strong>нет в уроках</strong> — там четыре вопроса в голове покупателя. Заказчик пользуется своей надстройкой. Если зашить обе — получим два конфликтующих классификатора</td>
+        <td>Показать заказчику четыре вопроса и спросить, ложится ли его деление на них</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout risk">
+    <p class="ct">Главное</p>
+    <p><strong>Весь объём работ опирается на непроверенное допущение, что планирование прогрева — это боль, за которую платят.</strong> Ему соответствует строка <code>R-1</code> в <a href="#l3-risk">разделе рисков</a>, и это же — то самое, что нужно проверить до стройки.</p>
+  </div>
+</section>
+
+<section id="l2-build">
+  <h3>Стоит ли это вообще строить</h3>
+  <p>Прежде чем писать требования, я поднял цель по лестнице: сделать модуль → чтобы инфобиз купил ContentOS → чтобы вырасти в выручке → чтобы бизнес вышел на устойчивую экономику. Настоящая задача — <strong>найти сегмент, который платит повторяемо</strong>. Модуль — это гипотеза о том, как её решить, а не сама цель.</p>
+
+  <p>Дальше я спросил, что можно убрать, и как это выглядело бы, если бы взаимодействовать с продуктом было вообще не нужно. Ответ: система знает дату запуска и каждый день сама кладёт в очередь готовый контент, эксперт только снимает и подтверждает. В пределе это <strong>не планировщик, а шеф-редактор запуска</strong> — и это правильное направление на будущее.</p>
+
+  <p>Затем — проверка, локальный это ход или глобальный. Добавить вкладку в существующий продукт — локальный, даёт проценты. Сменить сегмент и главную задачу продукта (с «сделай мне пост» на «проведи мой запуск») — глобальный, даёт кратный рост при кратном риске. Выбран глобальный. Из этого прямо следует, что <strong>риск сидит в выборе сегмента, а не в наборе функций</strong>.</p>
+
+  <p>Я предложил четыре способа выполнить ту же бизнес-задачу и рекомендовал начать с урезанного — только проверка прогрева, без генератора, за 2–3 недели. <strong>Заказчик выбрал полный модуль за неделю.</strong> Это решение принято осознанно, и при недельном горизонте оно защитимо: цена ошибки — неделя, а не квартал. Условие, на котором оно работает: проверка сегмента идёт <em>параллельно</em> стройке, а не откладывается. <a class="drill" href="#l3-challenge">полный челлендж-гейт ▸</a></p>
+
+  <p><strong>Чего мы сознательно не строим:</strong> производственный контур (монтаж, съёмочные задачи) и автоматическую атрибуцию продаж. Первое — не наша компетенция и главное узкое место клиента; второе требует интеграций, которых за неделю не будет.</p>
+</section>
+
+<section id="l2-users">
+  <h3>Для кого это и в какой момент становится ценным</h3>
+  <p>Сегмент режется не по демографии, а по тому, как человек определяет успех. Наш: делает запуски регулярно, продаёт через собственный контент, воспринимает пропущенный смысл как потерянные деньги. То, ради чего он всё это делает (задача уровнем выше) — <strong>заработать на запуске столько, сколько запланировал</strong>. Прогрев для него не творчество, а обязательство перед собственным финансовым планом.</p>
+
+  <p>Самое важное решение в этом документе — где поставить <strong>момент, когда продукт впервые превосходит ожидание</strong>. Соблазн поставить его на «сгенерировался план». Это ошибка: календарь человек и так ожидает получить, никакого превосходства над ожиданием там нет — любой шаблон в Notion делает то же самое.</p>
+
+  <p>Поэтому момент сдвинут левее и в другую плоскость: <strong>система показывает пропуск, которого человек сам не видел, и называет его цену</strong> — на его собственном, уже существующем контенте, до того как он что-то построил. Это работает, потому что предсказание у него другое («сейчас мне нарисуют календарик»), а получает он диагноз. По той же причине это лучший вход в продукт: показать дыру можно за минуту, а построить план — нет. <a class="drill" href="#l3-overview">где именно в потоке ▸</a></p>
+</section>
+
+<section id="l2-capabilities">
+  <h3>Что продукт обязан уметь, чтобы этот момент случился</h3>
+  <p>Пять несущих способностей. Всё остальное — обвязка.</p>
+  <ul>
+    <li><strong>Развернуть календарь назад от даты продаж.</strong> Человек знает одну дату — когда открываются продажи. Всё остальное система обязана посчитать сама: когда начинать мягкий прогрев, когда вбрасывать идею, когда собирать ажиотаж. Это чистая арифметика, здесь нет места ИИ.</li>
+    <li><strong>Знать, какой смысл в какой день уместен.</strong> Драматургия запуска — не равномерная: фон затухает к середине, продукт включается ближе к концу, ажиотаж живёт один день. Это описывается кривыми, а не таблицей.</li>
+    <li><strong>Подобрать идею под смысл из банка пользователя.</strong> Именно этого нет ни в одном инструменте, который мы видели, — у заказчика подбор написан наполовину и выключен флагом. Это и есть разница между «красивой сеткой» и «планом, по которому можно снимать».</li>
+    <li><strong>Найти дыру и назвать её цену.</strong> Не «покрытие 87%», а «ты ни разу не показал провал — вот чем это грозит и вот в какие дни это лечится».</li>
+    <li><strong>Не смешивать прогрев с обычным контентом.</strong> Запуск — отдельное пространство со своим календарём. Иначе через месяц человек не понимает, где он ведёт блог, а где готовит запуск. <a class="drill" href="#l3-data">как это в данных ▸</a></li>
+  </ul>
+  <p><a class="drill" href="#l3-requirements">полный список требований ▸</a></p>
+</section>
+
+<section id="l2-failures">
+  <h3>Какие поломки реально теряют пользователя</h3>
+  <p>Отсортировано по тому, насколько дорого обходится каждая.</p>
+  <ol>
+    <li><strong>Уверенный, но неверный вердикт.</strong> Валидатор говорит «все смыслы закрыты», потому что разметка проставлена регулярными выражениями и никем не выверена. Человек верит, идёт в запуск, теряет продажи — и это <em>наша</em> ошибка, а не его. Самый опасный класс, потому что ломает доверие ко всему продукту разом.</li>
+    <li><strong>Прогрев отработал, а продавать нечего.</strong> Программа не собрана, оплата не подключена. Система всю дорогу показывала зелёное, потому что проверяла только контент. Цена ошибки — весь запуск.</li>
+    <li><strong>План обрывается на открытии продаж.</strong> Ровно там, где в разобранном кейсе добрали треть выручки. Человек импровизирует в самый дорогой момент.</li>
+    <li><strong>Пустой банк идей.</strong> Система разложила сто с лишним слотов и не заполнила ни одного, потому что у нового пользователя идей ещё нет. План выглядит как упрёк.</li>
+    <li><strong>Дату запуска перенесли.</strong> В разобранном кейсе автор выпадал из графика дважды — заболел и «не было сил». Если перенос рушит весь план, продуктом не воспользуются второй раз.</li>
+    <li><strong>Человек первый раз слышит слово «прогрев».</strong> Ему нужно не поле «дата продаж», а объяснение, что вообще происходит.</li>
+  </ol>
+  <p><a class="drill" href="#l3-edge">полная таблица случаев ▸</a></p>
+</section>
+
+<section id="l2-risk">
+  <h3>Самое рискованное допущение и самая дешёвая проверка</h3>
+  <p>Если модуль провалится, вероятнее всего это будет так: мы построили инструмент планирования для людей, у которых узкое место не в планировании. В материалах заказчика это написано прямым текстом — <em>«узкое место — монтаж, а не сценарии и не съёмка»</em>, идей у него 498, а снятое лежит неделями. Если это свойство сегмента, а не одного человека, то ценность модуля близка к нулю независимо от качества исполнения.</p>
+
+  <div class="callout">
+    <p class="ct">Что делать на этой неделе</p>
+    <p>Доступ к экспертам есть — значит проверка стоит пять разговоров и идёт параллельно стройке. Спрашивать <strong>про прошлый запуск, а не про будущий</strong>: на что ушло больше всего времени; что делали в последние три дня перед продажами; что бы отдали на аутсорс первым. Если в ответах не звучит «не знал, что постить» и «боялся что-то упустить» — гипотеза не подтвердилась, и модуль надо переориентировать на производство, а не на планирование.</p>
+  </div>
+  <p><a class="drill" href="#l3-risk">полный разбор рисков ▸</a></p>
+</section>
+
+<!-- ================= LAYER 3 ================= -->
+<div class="layer-head" id="layer-3">
+  <span class="lnum">Уровень 3</span>
+  <h2>Полная спека</h2>
+  <p class="what">То, по чему строят. Здесь методологические термины используются напрямую.</p>
+</div>
+
+<section id="l3-challenge">
+  <h3>0 · Решение о стройке</h3>
+  <p><strong>Бизнес-цель по лестнице:</strong> сделать модуль → чтобы инфобиз купил ContentOS → чтобы вырасти в выручке → чтобы бизнес вышел на устойчивую экономику. Настоящая работа: <em>найти сегмент, который платит повторяемо.</em></p>
+  <p><strong>Что можно убрать:</strong> генератор плана (оставить только диагностику), сам продукт (оставить услугу), планирование целиком (система ведёт запуск сама). Предел субтракции — эксперт только снимает и подтверждает.</p>
+  <p><strong>Локально или глобально:</strong> глобальный ход — смена сегмента и Core Job. Следствие: главный риск в сегменте.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr>
+      <th>Способ</th><th>Что убирает / добавляет</th><th>Цена против исходного</th><th>Механика создания ценности</th><th>Главный риск</th><th>Выбран</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>A · Полный модуль</strong></td>
+        <td>Всё сразу: справочники, генератор, валидаторы, банк, календарь</td>
+        <td>исходная</td>
+        <td>Выполнять работу на уровне ожиданий сегмента</td>
+        <td>Стоит на непроверенном «инфобиз купит»</td>
+        <td><span class="sev ok">да</span></td>
+      </tr>
+      <tr>
+        <td>B · Только проверка</td>
+        <td>Убирает генератор: грузишь свой план → отчёт о дырах</td>
+        <td>≈ ⅓</td>
+        <td>Чинить проблему; выполнять ориентационную работу</td>
+        <td>Без плана проверять нечего</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>C · Запуск под ключ руками</td>
+        <td>Убирает продукт, оставляет услугу на 3–5 клиентов</td>
+        <td>≈ ¼, но не масштабируется</td>
+        <td>Снять работу с клиента целиком</td>
+        <td>Съедает команду из двух человек</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>D · Шеф-редактор запуска</td>
+        <td>Убирает планирование как отдельную работу человека</td>
+        <td>× 3–4</td>
+        <td>Подняться на уровень выше</td>
+        <td>Тот же риск сегмента, но дороже</td>
+        <td>цель на потом</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout note">
+    <p class="ct">Условие, на котором выбор A защитим</p>
+    <p>Вердикт — <strong>«идём к стройке, но сначала в поле»</strong>, а не «строим и всё». Выбор предмета стройки не отменяет проверки: при недельном горизонте проверка идёт параллельно, а не вместо. Если пять разговоров не подтвердят боль планирования, модуль разворачивается в сторону производства до того, как в него вложится вторая неделя.</p>
+  </div>
+
+  <div class="trace">▸ методологический след. Лестница бизнес-цели и локальный-против-глобального — гейт перед требованиями; субтракция-первой и предел невидимого продукта; альтернативы сгенерированы прогоном каталога механик по графу работ сегмента; вердикт в форме «к валидации», не «к разработке».</div>
+</section>
+
+<section id="l3-overview">
+  <h3>1 · Обзор</h3>
+  <dl class="kv">
+    <dt>Предмет стройки</dt><dd>Модуль «Запуски» внутри ContentOS: планирование, диагностика и производство контента прогрева.</dd>
+    <dt>Бизнес-работа</dt><dd>Найти сегмент, который платит за ContentOS повторяемо.</dd>
+    <dt>Сегмент</dt><dd>Эксперт с повторяющимися запусками (2+/год), продающий через контент собственного блога, для которого запуск — основная выручка года.</dd>
+    <dt>Big Job</dt><dd>Хочу заработать на запуске столько, сколько запланировал.</dd>
+  </dl>
+
+  <h4>Core Jobs, которые модуль выполняет целиком</h4>
+  <div class="tw">
+  <table>
+    <thead><tr><th>#</th><th>Core Job</th><th>Критерии успеха<span class="gloss">направление + уровень</span></th></tr></thead>
+    <tbody>
+      <tr><td class="num">CJ-1</td>
+        <td>Хочу разложить запуск по дням до даты продаж</td>
+        <td>каждый день окна закрыт хотя бы одной единицей контента; порядок этапов не нарушен; готово за часы, а не за две недели</td></tr>
+      <tr><td class="num">CJ-2</td>
+        <td>Хочу убедиться, что в прогреве нет пропуска, который стоит продаж</td>
+        <td>назван конкретный пропуск с ценой ошибки, а не процент покрытия; вердикт опирается на выверенные данные, а не на автоматическую разметку</td></tr>
+      <tr><td class="num">CJ-3</td>
+        <td>Хочу произвести контент под слот, не выпадая из своего голоса</td>
+        <td>из идеи — черновик поста или сценария; доля правок ниже 15–20%</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="small">CJ-3 ContentOS уже выполняет существующими скиллами — новое здесь только связь «слот → генерация».</p>
+
+  <h4>Цепочка работ клиента и где в ней момент ценности</h4>
+  <p>Цепочка, которую эксперт проходит на запуске. Отмечены места разрыва и точка, где продукт впервые превосходит ожидание.</p>
+
+  <div class="axis">
+  <svg viewBox="0 0 980 210" role="img" aria-label="Цепочка работ эксперта на запуске: от решения делать запуск до продаж, с отметкой момента ценности после диагностики и разрывами на этапах наполнения банка и монтажа">
+    <defs>
+      <marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+        <path d="M0,0 L7,3.5 L0,7 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g fill="currentColor" color="var(--muted)" font-family="IBM Plex Mono, monospace" font-size="10.5">
+      <text x="0" y="12" letter-spacing="1.2">ЦЕПОЧКА РАБОТ · ЗАПУСК</text>
+    </g>
+    <g color="var(--line)" stroke="currentColor" stroke-width="1">
+      <line x1="0" y1="96" x2="960" y2="96" marker-end="url(#ar)"/>
+    </g>
+    <g font-family="IBM Plex Sans, sans-serif" font-size="11.5">
+      <!-- nodes -->
+      <g color="var(--accent)" fill="currentColor">
+        <circle cx="60" cy="96" r="5"/><circle cx="200" cy="96" r="5"/>
+        <circle cx="340" cy="96" r="7" stroke="var(--surface)" stroke-width="2"/>
+        <circle cx="480" cy="96" r="5"/><circle cx="620" cy="96" r="5"/>
+      </g>
+      <g color="var(--muted)" fill="currentColor">
+        <circle cx="760" cy="96" r="5"/><circle cx="890" cy="96" r="5"/>
+      </g>
+      <g fill="var(--ink)">
+        <text x="60" y="126" text-anchor="middle">решить,</text><text x="60" y="140" text-anchor="middle">что запускаю</text>
+        <text x="200" y="126" text-anchor="middle">понять,</text><text x="200" y="140" text-anchor="middle">что греть</text>
+        <text x="340" y="126" text-anchor="middle">разложить</text><text x="340" y="140" text-anchor="middle">по дням</text>
+        <text x="480" y="126" text-anchor="middle">найти,</text><text x="480" y="140" text-anchor="middle">из чего снять</text>
+        <text x="620" y="126" text-anchor="middle">снять</text><text x="620" y="140" text-anchor="middle">и написать</text>
+        <text x="760" y="126" text-anchor="middle">смонтировать</text>
+        <text x="890" y="126" text-anchor="middle">опубликовать,</text><text x="890" y="140" text-anchor="middle">продать</text>
+      </g>
+      <!-- aha -->
+      <g>
+        <line x1="340" y1="60" x2="340" y2="88" stroke="var(--accent)" stroke-width="1.5"/>
+        <rect x="243" y="36" width="194" height="24" rx="3" fill="var(--accent-wash)" stroke="var(--accent)"/>
+        <text x="340" y="52" text-anchor="middle" fill="var(--accent-ink)" font-weight="600">момент ценности здесь</text>
+      </g>
+      <!-- breaks -->
+      <g font-size="10.5">
+        <line x1="410" y1="96" x2="410" y2="164" stroke="var(--critical)" stroke-dasharray="3 3"/>
+        <text x="414" y="178" fill="var(--critical)">разрыв: банк пуст</text>
+        <line x1="690" y1="96" x2="690" y2="164" stroke="var(--critical)" stroke-dasharray="3 3"/>
+        <text x="694" y="178" fill="var(--critical)">разрыв: монтаж — вне продукта</text>
+      </g>
+      <g font-size="10.5" fill="var(--muted)">
+        <text x="0" y="200">ContentOS сегодня закрывает: «найти, из чего снять» и частично «снять и написать»</text>
+      </g>
+    </g>
+  </svg>
+  </div>
+
+  <h4>Момент ценности</h4>
+  <p>Продукт впервые превосходит ожидание на шаге <strong>«разложить по дням»</strong>, но не самим фактом раскладки, а первым вердиктом диагностики. Формулировка, к которой стремимся: <em>«За 42 дня прогрева ты ни разу не показал, что у тебя не получалось»</em>. Проверка на подлинность: человек предсказывал календарь — получил названный пропуск; предсказание превзойдено. Если бы мы поставили момент на «план сгенерирован», превосходства бы не было — это ровно то, чего он и ждал.</p>
+  <p>Момент сдвинут максимально влево тем, что <strong>диагностику можно показать до построения плана</strong> — на уже опубликованном контенте пользователя. Это же убирает главный барьер входа: не надо ничего заполнять, чтобы увидеть пользу.</p>
+
+  <div class="trace">▸ методологический след. Цепочка построена на CJ-1/CJ-2; форма — последовательная с двумя внешними разрывами; момент ценности как положительная ошибка предсказания против критериев, с которыми пришёл клиент, сдвинут влево до первого построения плана.</div>
+</section>
+
+<section id="l3-users">
+  <h3>2 · Целевые пользователи</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Признак сегмента<span class="gloss">причинный, не демографический</span></th><th>Почему он причинный</th></tr></thead>
+    <tbody>
+      <tr><td>Делает запуски 2+ раза в год</td><td>Однократный запуск не окупает освоение инструмента; повторяемость создаёт спрос на систему, а не на разовую помощь</td></tr>
+      <tr><td>Продаёт через контент собственного блога</td><td>Если продажи идут платным трафиком на вебинар, задача другая — там нужен не прогрев, а связка креатив-лендинг</td></tr>
+      <tr><td>Запуск — основная выручка года</td><td>Задаёт цену ошибки, а значит готовность платить за проверку</td></tr>
+      <tr><td>Сам отвечает за контент</td><td>Если контент делегирован агентству, покупатель — агентство, и это другой сегмент с другой цепочкой</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Приоритет критериев</h4>
+  <p>Доминирующие критерии сегмента — <strong>надёжность и снятие тревоги</strong>, а не скорость и не цена. Человек за неделю до продаж не спрашивает «как быстрее», он спрашивает «я ничего не забыл?». Отсюда выбор ведущих механик: чинить проблему, убирать негативную эмоцию, выполнять ориентационную работу. Механика «снизить цену» здесь запрещена — она разрушает восприятие надёжности.</p>
+
+  <h4>Кому это не адресовано</h4>
+  <ul>
+    <li>Агентства и продюсерские центры, ведущие запуски за клиента — другая цепочка (двойная передача материала), другой покупатель.</li>
+    <li>Эксперты без запусков, ведущие блог регулярно — им достаточно существующего контент-плана ContentOS.</li>
+    <li>Те, кто продаёт платным трафиком без прогрева в блоге.</li>
+  </ul>
+
+  <div class="trace">▸ методологический след. Сегментация консьюмится, не выводится заново; корень — Core Jobs с критериями успеха. Приоритет критериев (надёжность + отсутствие тревоги) определяет ведущие механики по карте критерии→механики.</div>
+</section>
+
+<section id="l3-fix">
+  <h3>3 · Слабые места первоисточника и как мы их закрываем</h3>
+  <p>Это ядро ценности модуля. Методология сильна, но у неё есть противоречия, пробелы и места, где инструмент заказчика просто не дописан. Ниже — всё, что мы нашли, и решение по каждому. Пункты, помеченные <span class="sev c">критично</span>, определяют, будет ли продукт врать пользователю.</p>
+
+  <details open>
+    <summary>Противоречия и пробелы в самой методологии — 6 пунктов</summary>
+    <div class="dbody">
+      <div class="tw">
+      <table>
+        <thead><tr><th>Что не так</th><th>Как проявляется</th><th>Наше решение</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Длительность активного прогрева гуляет</td>
+            <td>В одном уроке «последняя неделя или последние 10 дней», в резюме «10–15 дней», в кейсе фактически 11</td>
+            <td>Диапазон 7–15 дней, дефолт 10. В интерфейсе помечено как <em>наш</em> выбор, а не цитата методологии</td>
+          </tr>
+          <tr>
+            <td>Момент ажиотажа определён трижды по-разному</td>
+            <td>«Непосредственно перед продажами» / «финальный день» / в кейсе — утро дня продаж</td>
+            <td>Ажиотаж — точка длиной 0–1 день, привязанная к дате продаж, а не отдельный этап с длительностью</td>
+          </tr>
+          <tr>
+            <td>Нет пропорции продающего и непродающего</td>
+            <td>Норматива не существует ни в одном уроке</td>
+            <td>Берём реконструкцию из разобранного кейса как дефолт и даём менять. Помечаем как наш норматив</td>
+          </tr>
+          <tr>
+            <td>Нет правил соседства</td>
+            <td>Ни одного правила «что нельзя ставить рядом»</td>
+            <td>Выводим из кейса: после «душного» продающего дня — лёгкий. Это единственное правило соседства, которое подтверждается практикой</td>
+          </tr>
+          <tr>
+            <td>Метрик после запуска нет вообще</td>
+            <td>Автор прямо предупреждает, что выручка/длина прогрева вводит в заблуждение</td>
+            <td>Меряем то, что можем: доля дней с публикацией, покрытие смыслов на момент продаж. Не обещаем корреляции с выручкой</td>
+          </tr>
+          <tr>
+            <td>Два конфликтующих классификатора смыслов</td>
+            <td>36 «галочек» из урока 1 и 11 разделов конструктора — разные оси, в инструменте не связаны</td>
+            <td>Оставляем оба, но с разными ролями: 11 разделов — рубрика слота (по ним квоты), 36 галочек — чек-лист покрытия. Связь через четыре вопроса покупателя</td>
+          </tr>
+          <tr>
+            <td><strong>Длина окна продаж не названа вообще</strong></td>
+            <td>Методология доводит до открытия продаж и там обрывается. При этом в её же разобранном кейсе после открытия добрали 25 млн из 75 — треть выручки запуска</td>
+            <td>Продолжаем ось за дату открытия: дожим, снятие возражений, последний день. Это <strong>наше дополнение к методологии</strong>, а не её цитата — см. <a href="#fr-9">FR-9</a></td>
+          </tr>
+          <tr>
+            <td>Готовность продукта не входит в методологию вообще</td>
+            <td>Все восемь ошибок первоисточника — про контент. Ни одна не про то, что продавать будет нечего</td>
+            <td>Вторая дорожка запуска с собственными сроками — см. <a href="#fr-10">FR-10</a></td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Дыры в инструменте заказчика — 8 пунктов</summary>
+    <div class="dbody">
+      <div class="tw">
+      <table>
+        <thead><tr><th>Что не так</th><th>Последствие</th><th>Наше решение</th><th>Важность</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Подбор идеи под слот не написан</td>
+            <td>Флаг <code>FILL_CANDIDATES = False</code>, функция подбора ни разу не вызывается. Все 115 назначений — руками</td>
+            <td>Автоподбор с учётом уже израсходованных идей — это несущая функция модуля, а не украшение</td>
+            <td><span class="sev c">критично</span></td>
+          </tr>
+          <tr>
+            <td>Разметка банка вся на регулярках</td>
+            <td>Дефицит «Ажиотажа», который показывает инструмент, — артефакт регулярки, а не реальность. Автор сам просит «вычитывать, а не принимать на веру»</td>
+            <td>Поле происхождения разметки: правило / модель / человек, плюс дата выверки. <strong>Валидатор не засчитывает покрытие по невыверенной разметке</strong> — он говорит «не проверено», а не «покрыто»</td>
+            <td><span class="sev c">критично</span></td>
+          </tr>
+          <tr>
+            <td>Проверка сверяет спрос с размером банка, а не с фактом</td>
+            <td>«Идея нашлась для 106» означает лишь, что в банке достаточно записей нужной рубрики. Реально ни одна идея не назначена</td>
+            <td>Сверяем с фактически назначенными единицами. Два разных числа: «есть в банке» и «поставлено в план»</td>
+            <td><span class="sev c">критично</span></td>
+          </tr>
+          <tr>
+            <td>Учёта израсходованных идей нет</td>
+            <td>Одну идею можно поставить в пять дней подряд, счётчик этого не заметит</td>
+            <td>Уникальность назначения в пределах запуска + видимый счётчик переиспользования</td>
+            <td><span class="sev h">важно</span></td>
+          </tr>
+          <tr>
+            <td>Идея адресуется индексом массива</td>
+            <td>Пересборка банка сдвигает индексы, и сохранённый план молча показывает чужие идеи</td>
+            <td>Стабильные идентификаторы (у нас они уже есть в базе)</td>
+            <td><span class="sev h">важно</span></td>
+          </tr>
+          <tr>
+            <td>Формат идеи и площадка слота не сверяются</td>
+            <td>Можно поставить идею для выпуска на YouTube в слот сторис</td>
+            <td>Валидация соответствия формата и площадки при назначении</td>
+            <td><span class="sev m">средне</span></td>
+          </tr>
+          <tr>
+            <td>Смещение дат на сутки</td>
+            <td>Локальная полночь переводится в UTC — в Москве весь календарь едет на день назад</td>
+            <td>Даты как календарные даты, без часовых поясов. У нас это тип <code>date</code> в базе</td>
+            <td><span class="sev h">важно</span></td>
+          </tr>
+          <tr>
+            <td>Состояние в браузере одного человека</td>
+            <td>При работе вдвоём — две расходящиеся реальности, синхронизации нет</td>
+            <td>База и организации — у нас это уже так по построению</td>
+            <td><span class="sev m">средне</span></td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Чего нет ни в уроках, ни в инструменте, но что решает исход — 4 пункта из разбора кейса</summary>
+    <div class="dbody">
+      <p>Эти механики вытащены из разбора реального запуска и в методологии как сущности не описаны. При этом в кейсе они несущие.</p>
+      <div class="tw">
+      <table>
+        <thead><tr><th>Механика</th><th>Как работает в кейсе</th><th>Как реализуем</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Сюжетные линии</strong></td>
+            <td>3–4 линии заявляются авансом в начале и закрываются событием через недели. В кейсе линия «получу ключи от квартиры» заявлена 6 января и закрыта 30 января — это несущая конструкция месяца</td>
+            <td>Сущность «линия» внутри запуска: заявка, развитие, закрытие. Валидатор проверяет, что заявленная линия закрыта до продаж</td>
+          </tr>
+          <tr>
+            <td><strong>Пиковые дни подряд</strong></td>
+            <td>Автор помечает «бриллиантовые дни» и ставит их подряд — выпускной, затем продажа-перформанс, затем сильнейший кейс</td>
+            <td>Пометка пикового дня + подсказка генератора не размазывать пики равномерно</td>
+          </tr>
+          <tr>
+            <td><strong>Развязка на следующий день</strong></td>
+            <td>Концовка сильного дня намеренно выносится на завтра, чтобы держать возвраты</td>
+            <td>Связка «часть 1 / часть 2» между слотами соседних дней</td>
+          </tr>
+          <tr>
+            <td><strong>Лестница вместо кнопки</strong></td>
+            <td>Предзапись копится с каждого яркого события: 100 за 10 минут → 1500 → 2000 → 5000 → вебинар</td>
+            <td>У запуска — накопительная цель (лист ожидания), к которой привязаны точки сбора, а не одна дата открытия продаж</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary>Что мы сознательно НЕ переносим</summary>
+    <div class="dbody">
+      <ul>
+        <li><strong>Нишевые нормативы</strong> — «15–20 сторис в день», огоньки, ответы в директ, лист ожидания в Instagram. Это специфика одной площадки и одной ниши. Уходит в пресет «блог в Instagram / Telegram», а не в ядро.</li>
+        <li><strong>Деление «личность / тема / продукт»</strong> — надстройка заказчика, которой нет в уроках и которая конфликтует с четырьмя вопросами. Не берём, чтобы не иметь двух классификаторов.</li>
+        <li><strong>Оценку «в примере на 75 млн»</strong> как приоритет триггера — это оценка плотности в одном чужом запуске, а не свойство триггера. Берём как справочную подсказку, не как вес в алгоритме.</li>
+      </ul>
+    </div>
+  </details>
+
+  <div class="trace">▸ методологический след. Раздел реализует механики «чинить проблему» и «чинить невыполненные работы в цепочке» — в том числе работы, которых нет в нашей исходной компетенции. Пункты про происхождение разметки — прямая защита от манипуляции ожиданием: уверенный неверный вердикт создаёт проблему сильнее, чем отсутствие вердикта.</div>
+</section>
+
+<section id="l3-requirements">
+  <h3>4 · Функциональные требования</h3>
+  <p>Требования сформулированы со стороны пользователя. Критерий приёмки у каждого — измеримый.</p>
+
+  <h4>Ось запуска: как раскладывается календарь</h4>
+  <p>Семь этапов разворачиваются назад от даты открытия продаж. Это единственная дата, которую пользователь обязан ввести.</p>
+
+  <div class="axis">
+  <svg viewBox="0 0 980 150" role="img" aria-label="Семь этапов прогрева на оси времени: регулярный контент, мягкий прогрев, вброс идеи, активный прогрев, прогрев к ключевому шагу, ажиотаж, продажи">
+    <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--muted)">
+      <text x="0" y="12" letter-spacing="1.2">ОСЬ ЗАПУСКА · РАЗВЁРТКА НАЗАД ОТ ДАТЫ ПРОДАЖ</text>
+    </g>
+    <g>
+      <rect x="0"   y="30" width="150" height="30" fill="var(--surface-2)" stroke="var(--line)"/>
+      <rect x="150" y="30" width="270" height="30" fill="var(--accent-wash)" stroke="var(--accent)" opacity=".55"/>
+      <rect x="420" y="30" width="60"  height="30" fill="var(--accent-wash)" stroke="var(--accent)" opacity=".75"/>
+      <rect x="480" y="30" width="240" height="30" fill="var(--accent-wash)" stroke="var(--accent)"/>
+      <rect x="720" y="30" width="140" height="30" fill="var(--warn-wash)" stroke="var(--warn)"/>
+      <rect x="860" y="30" width="35"  height="30" fill="var(--critical-wash)" stroke="var(--critical)"/>
+      <rect x="895" y="30" width="85"  height="30" fill="var(--critical-wash)" stroke="var(--critical)"/>
+    </g>
+    <g font-family="IBM Plex Sans, sans-serif" font-size="11" fill="var(--ink)">
+      <text x="75"  y="49" text-anchor="middle">1 · фон</text>
+      <text x="285" y="49" text-anchor="middle">2 · мягкий прогрев</text>
+      <text x="450" y="49" text-anchor="middle" font-size="9.5">3 · вброс</text>
+      <text x="600" y="49" text-anchor="middle">4 · активный прогрев</text>
+      <text x="790" y="49" text-anchor="middle" font-size="10.5">5 · к ключевому шагу</text>
+      <text x="877" y="24" text-anchor="middle" font-size="9" fill="var(--critical)">6</text>
+      <text x="937" y="49" text-anchor="middle" font-size="10.5">7 · продажи</text>
+    </g>
+    <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">
+      <text x="75"  y="76" text-anchor="middle">всегда</text>
+      <text x="285" y="76" text-anchor="middle">10–30 дней</text>
+      <text x="450" y="76" text-anchor="middle">1 день</text>
+      <text x="600" y="76" text-anchor="middle">7–15, дефолт 10</text>
+      <text x="790" y="76" text-anchor="middle">4–6 дней</text>
+      <text x="877" y="90" text-anchor="middle" fill="var(--critical)">ажиотаж 0–1</text>
+    </g>
+    <g stroke="var(--ink)" stroke-width="1.5">
+      <line x1="895" y1="26" x2="895" y2="64"/>
+    </g>
+    <g font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="var(--ink)" font-weight="600">
+      <text x="895" y="112" text-anchor="middle">дата продаж —</text>
+      <text x="895" y="126" text-anchor="middle">единственный обязательный ввод</text>
+    </g>
+  </svg>
+  </div>
+
+  <div class="req">
+    <div class="rid">FR-1 · создание запуска</div>
+    <h4>Пользователь создаёт запуск, указав одну дату</h4>
+    <p>Обязательно — дата открытия продаж. Опционально: дата закрытия, ключевое событие (вебинар или бесплатник), номер запуска (первый или повторный), продукт. Всё остальное считается.</p>
+    <div class="ac"><b>Критерий приёмки</b>Из одной даты система строит окно из семи этапов с корректными границами; при первом запуске в сценарий добавляется вброс идеи со сбором реакций, при повторном — анонс даты открытия продаж.</div>
+    <div class="trace">▸ Core Job CJ-1 → Big Job «заработать на запуске столько, сколько запланировал» · механика: убрать работу с клиента (расчёт дат) · вклад в момент ценности: убирает первый барьер — не надо знать методологию, чтобы начать</div>
+  </div>
+
+  <div class="req">
+    <div class="rid">FR-2 · раскладка по дням</div>
+    <h4>Пользователь получает календарь, где у каждого дня есть смысл и площадка</h4>
+    <p>Слоты порождаются по настраиваемому каденсу (по умолчанию: ежедневный слот основной площадки, второй формат — по будним дням, длинный формат — дважды в неделю). Смысл на слот назначается по кривым интенсивности: доля каждой рубрики зависит от положения дня на оси запуска, а не от жёсткой таблицы. Одинаковые смыслы не идут подряд.</p>
+    <div class="ac"><b>Критерий приёмки</b>Для окна в 42 дня генерируется от 60 до 130 слотов; ни одна рубрика не встречается более двух раз подряд; сумма назначенных единиц равна заявленному объёму (без расхождения от округления).</div>
+    <div class="trace">▸ CJ-1 → Big Job · механика: выполнять работу на уровне ожиданий сегмента · вклад: даёт материальный объект, на котором работает диагностика</div>
+  </div>
+
+  <div class="req">
+    <div class="rid">FR-3 · подбор идеи</div>
+    <h4>Система подставляет в слот идею из банка пользователя</h4>
+    <p>Под рубрику слота подбирается неиспользованная идея, приоритет — выше оценённым. Идея не может занять два слота одного запуска. Если под рубрику идей нет, слот остаётся пустым и попадает в дефицит — <strong>явно, а не тихо</strong>.</p>
+    <div class="ac"><b>Критерий приёмки</b>Ни одна идея не назначена дважды в пределах запуска; для каждого незаполненного слота названа причина (нет идей нужной рубрики / все израсходованы); отчёт различает «есть в банке» и «поставлено в план».</div>
+    <div class="trace">▸ CJ-1 → Big Job · механика: чинить невыполненную работу в цепочке — именно здесь цепочка рвётся у всех существующих инструментов · вклад: без этого план не превращается в съёмку</div>
+  </div>
+
+  <div class="req">
+    <div class="rid">FR-4 · диагностика</div>
+    <h4>Пользователь видит, чего в прогреве не хватает, с ценой ошибки</h4>
+    <p>Набор проверок, каждая возвращает не процент, а формулировку на языке последствий. Минимальный набор на первую неделю:</p>
+    <ul>
+      <li><strong>Непокрытые смыслы</strong> — какие из чек-листа не закрыты ни одной единицей.</li>
+      <li><strong>Незадействованные рычаги</strong> — какие психологические триггеры не встречаются ни разу; отдельно помечаются сквозные, которые не привязаны к этапу.</li>
+      <li><strong>Нарушение порядка этапов</strong> — ажиотаж раньше раскрытия темы и эксперта.</li>
+      <li><strong>Банк не закрывает план</strong> — по каждой рубрике: сколько нужно, сколько есть, сколько поставлено.</li>
+      <li><strong>Нет мостика</strong> — история старта из точки аудитории отсутствует или стоит позже первого объявления результатов.</li>
+      <li><strong>Смысл без доказательства</strong> — утверждение, под которым нет события, кейса или факта.</li>
+    </ul>
+    <div class="ac"><b>Критерий приёмки</b>Каждая находка называет: что именно пропущено, чем это грозит, и в какие конкретные дни это чинится. Ни одна находка не формулируется как процент. Находки, опирающиеся на невыверенную разметку, помечены как непроверенные и не засчитываются в покрытие.</div>
+    <div class="trace">▸ Core Job CJ-2 → Big Job · механики: чинить проблему + убрать негативную эмоцию («я что-то забыл») · вклад: <strong>это и есть момент ценности</strong></div>
+  </div>
+
+  <div class="req">
+    <div class="rid">FR-5 · диагностика до плана</div>
+    <h4>Пользователь получает диагноз по уже опубликованному контенту, ничего не построив</h4>
+    <p>Вход в модуль без обязательного заполнения: система берёт существующие публикации организации, размечает по смыслам и показывает картину покрытия за период. Это же — вход для нового пользователя.</p>
+    <div class="ac"><b>Критерий приёмки</b>От первого экрана до первой названной находки — не более двух действий и одной минуты ожидания; работает при полностью пустом банке идей.</div>
+    <div class="trace">▸ CJ-2 → Big Job · механика: отдать часть ценности раньше в цепочке · вклад: сдвигает момент ценности максимально влево, до всякой настройки</div>
+  </div>
+
+  <div class="req">
+    <div class="rid">FR-6 · производство</div>
+    <h4>Из слота запускается генерация контента существующими скиллами</h4>
+    <p>Слот несёт рубрику, триггер и идею — этого достаточно, чтобы собрать контекст для генерации. Результат возвращается в слот и дальше идёт по существующему пути публикации.</p>
+    <div class="ac"><b>Критерий приёмки</b>Из слота одним действием создаётся черновик поста в существующем формате; сгенерированный текст сохраняет связь со слотом и запуском.</div>
+    <div class="trace">▸ Core Job CJ-3 → Big Job · механика: выполнять больше работ одним решением · вклад: закрывает разрыв между планом и съёмкой</div>
+  </div>
+
+  <div class="req">
+    <div class="rid">FR-7 · изоляция от обычного контента</div>
+    <h4>Прогрев не смешивается с текущим контент-планом</h4>
+    <p>Запуск — отдельное пространство с собственным календарём. В обычном контент-плане единицы запуска либо скрыты, либо явно помечены принадлежностью к запуску и не участвуют в недельной статистике блога. Банк идей общий: идея, использованная в запуске, помечается использованной и в банке.</p>
+    <div class="ac"><b>Критерий приёмки</b>Переключение между «блог» и «запуск» не требует фильтров вручную; ни один экран не показывает вперемешку единицы запуска и обычного плана без явной пометки; удаление запуска не удаляет идеи из банка.</div>
+    <div class="trace">▸ Все три Core Jobs · механика: убрать когнитивную нагрузку · вклад: прямое требование заказчика, и оно же защищает существующий сценарий от регресса</div>
+  </div>
+
+  <div class="req">
+    <div class="rid">FR-8 · перенос даты</div>
+    <h4>Пользователь двигает дату запуска, не теряя работу</h4>
+    <p>Смена ключевой даты пересчитывает границы этапов и сдвигает непроведённые слоты. Слоты с уже созданным контентом и опубликованные не затираются — они помечаются как выпадающие из новой сетки, и пользователь решает по каждому.</p>
+    <div class="ac"><b>Критерий приёмки</b>После сдвига даты на любое число дней ни одна единица с созданным контентом не удалена и не потеряла связь с идеей; конфликты показаны списком.</div>
+    <div class="trace">▸ CJ-1 → Big Job · механика: убрать возвраты на переделку в цепочке · вклад: закрывает самый частый внешний срыв — в разобранном кейсе автор выпадал из графика дважды</div>
+  </div>
+
+  <div class="req" id="fr-9">
+    <div class="rid">FR-9 · окно продаж</div>
+    <h4>Этапы не заканчиваются датой открытия продаж</h4>
+    <p>В методологии первоисточника семь этапов упираются в открытие продаж, а длина окна продаж не названа вообще. Это её самый дорогой пробел: в разобранном кейсе на 75 млн <strong>25 млн, то есть треть запуска, добрали уже после открытия</strong> — дожимом, снятием возражений и дедлайн-контентом последнего дня. Мы продолжаем ось за дату открытия: дожим, работа с возражениями, последний день. Дата закрытия — такой же якорь кривых, как дата открытия.</p>
+    <div class="ac"><b>Критерий приёмки</b>При заданной дате закрытия окно продаж раскладывается на слоты с собственными рубриками; последний день получает отдельный тип слота. Если дата закрытия не задана — система запрашивает её, а не молча обрывает план на открытии.</div>
+    <div class="trace">▸ CJ-1 → Big Job · механика: выполнить следующую работу в цепочке — забираем шаг, на котором обрываются и методология, и все конкуренты · вклад: закрывает разрыв ровно там, где делается основная выручка</div>
+  </div>
+
+  <div class="req" id="fr-10">
+    <div class="rid">FR-10 · готовность продукта</div>
+    <h4>Вторая дорожка: не только контент, но и то, что продаём</h4>
+    <p>Прогрев может отработать идеально, а продавать будет нечего: программа не собрана, приём оплаты не подключён, доступы не нарезаны. Система, которая проверяет только контент, в этом случае <strong>всю дорогу показывает зелёное</strong> — и это худший вид уверенного неверного ответа, потому что цена ошибки здесь равна всему запуску.</p>
+    <p>Поэтому у запуска две дорожки: контент и готовность продукта. Вторая — короткий список с датами, отсчитанными от даты продаж: программа, оффер и цена, приём платежей, выдача доступов, поддержка.</p>
+    <div class="ac"><b>Критерий приёмки</b>Запуск не переходит в состояние «готов», пока обе дорожки не закрыты. Проверка готовности продукта отображается рядом с проверкой смыслов и равна ей по весу. Есть режим «заморозить запуск» без удаления контента.</div>
+    <div class="trace">▸ CJ-2 → Big Job · механика: чинить невыполненную работу в цепочке, включая ту, что вне нашей исходной компетенции · вклад: устраняет разрыв, при котором вся цепочка отработала, а работа уровнем выше не выполнена</div>
+  </div>
+
+  <h4>Что делает код, а что модель</h4>
+  <p>Разделение принципиальное — оно определяет и стоимость, и предсказуемость.</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Детерминированный код</th><th>Языковая модель</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Развёртка календаря назад от даты; границы этапов; кривые интенсивности; квоты рубрик; антислипание; подсчёт покрытия и дефицита; проверка порядка этапов</td>
+        <td>Придумать идею под рубрику, когда банк пуст; перенести приём на нишу пользователя; разметить существующие публикации по смыслам; сформулировать находку на языке последствий</td>
+      </tr>
+      <tr>
+        <td><span class="small">Быстро, бесплатно, воспроизводимо. Ошибка видна сразу.</span></td>
+        <td><span class="small">Там, где нужен смысл, а не арифметика. Всё, что размечено моделью, помечается как невыверенное.</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="l3-data">
+  <h3>5 · Модель данных</h3>
+  <p>Главное решение: <strong>новая сущность ровно одна</strong>. Всё остальное — разметка поверх того, что уже работает. Это то, что делает недельный горизонт реальным.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>Что нужно</th><th>Где живёт</th><th>Новое?</th></tr></thead>
+    <tbody>
+      <tr><td>Запуск: даты, продукт, номер запуска, цель по листу ожидания</td><td>новая таблица <code>launches</code></td><td><span class="sev c">новое</span></td></tr>
+      <tr><td>Слот в календаре запуска</td><td><code>planned_posts</code> + ссылка на запуск</td><td><span class="sev m">поле</span></td></tr>
+      <tr><td>Идея в банке</td><td><code>knowledge_items</code> — уже есть, с оценкой и признаком израсходованности</td><td><span class="sev ok">есть</span></td></tr>
+      <tr><td>Рубрика, этап, триггер</td><td>разметка на слоте и идее</td><td><span class="sev m">поля</span></td></tr>
+      <tr><td>Происхождение разметки и дата выверки</td><td>поля на идее</td><td><span class="sev c">новое</span></td></tr>
+      <tr><td>Справочники: этапы, рубрики, триггеры, смыслы, кривые</td><td>справочные таблицы, редактируемые</td><td><span class="sev c">новое</span></td></tr>
+      <tr><td>Сюжетная линия</td><td>таблица линий + ссылка со слота</td><td><span class="sev c">новое</span></td></tr>
+      <tr><td>Генерация контента</td><td>существующие скиллы и очередь</td><td><span class="sev ok">есть</span></td></tr>
+      <tr><td>Публикация и метрики</td><td>существующий контур</td><td><span class="sev ok">есть</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout">
+    <p class="ct">Почему банк и календарь — одна таблица</p>
+    <p>Заказчик в своей архитектуре мучительно сливает их воедино и оценивает цену как «переимпорт 497 идей и 83 слотов». У нас это уже так: единица без даты — банк, единица с датой — календарь. Его главная боль закрыта на уровне схемы, и это стоит показать при демонстрации.</p>
+  </div>
+
+  <h4>Правила разметки — это данные, а не код</h4>
+  <p>У 36 смыслов и 18 триггеров в первоисточнике лежат правила автоматической разметки. Именно ими размечены 498 идей, без единого обращения к модели. Мы кладём эти правила <strong>в таблицу</strong>, а не в исходники: их придётся править под каждую нишу, и это должен уметь делать человек, а не разработчик.</p>
+</section>
+
+<section id="l3-edge">
+  <h3>6 · Пограничные случаи</h3>
+  <p>Это не чек-лист тестировщика. Каждая строка — место, где <strong>цепочка работ клиента рвётся</strong> или где он получает неприятный сюрприз при реальной вариации контекста. Порядок по важности: критичное ломает запуск или доверие к продукту, важное создаёт вынужденную ручную работу.</p>
+
+  <p>Особый класс — сверху таблицы: случаи, где <strong>система выдаёт уверенный, но неверный ответ</strong>. Они опаснее падений, потому что падение видно, а ложное «всё покрыто» — нет, и цена ошибки платится через месяц провалом конверсии, который уже не связать с причиной.</p>
+
+  <h4>Критичные — ломают запуск или доверие</h4>
+  <div class="tw">
+  <table>
+    <thead><tr>
+      <th>#</th><th>Случай</th><th>Что ломается</th><th>Требование</th>
+    </tr></thead>
+    <tbody>
+      <tr><td class="num">E-1</td>
+        <td>Разметка идей по смыслам проставлена автоматически, человек её не выверял</td>
+        <td>Валидатор показывает зелёное. Человек выходит в продажи с непокрытым смыслом и узнаёт об этом по провалу конверсии — через месяц, не связав причину и следствие</td>
+        <td>У каждой метки — источник: правило / модель / подтверждено человеком. <strong>В покрытие засчитывается только подтверждённое.</strong> Две шкалы: «размечено» и «подтверждено»</td></tr>
+      <tr><td class="num">E-2</td>
+        <td>36 смыслов «покрыты», но шесть из них закрыты одной и той же идеей под разными метками</td>
+        <td>Формально галочки стоят, фактически аудитория получит один тезис шесть раз</td>
+        <td>Одна идея закрывает не более одного смысла. Валидатор считает уникальные идеи, а не проставленные метки</td></tr>
+      <tr><td class="num">E-3</td>
+        <td>Валидатор «есть доказательство под смысл» проверяет заполненность поля. Вписано «кейс ученицы Ани», кейса нет</td>
+        <td>Зелёный валидатор легитимизирует выдуманную фактуру — репутационный риск, который система подтвердила своим «ОК»</td>
+        <td>Доказательство требует артефакта: дата, носитель (скрин, цифра, ссылка) и подтверждение «это было». Без артефакта — статус «заявлено, не подтверждено»</td></tr>
+      <tr><td class="num">E-4</td>
+        <td>«Идей 120, нужно 36 — хватает». Из 120 сто про другой продукт</td>
+        <td>Человек доверяет цифре, доходит до подбора и обнаруживает, что подставить нечего. Раскладка уже сделана — работа выброшена</td>
+        <td>Достаточность считается по пригодным под конкретный смысл, а не по строкам. Дефицит адресный: «под смысл X кандидатов 0»</td></tr>
+      <tr><td class="num">E-5</td>
+        <td>Запуск через 3 дня, а система разворачивает этапы на 40 дней назад</td>
+        <td>Календарь наезжает на прошлое, слоты недостижимы. Либо система молча обрезает, и человек не понимает, что у него отняли</td>
+        <td>При нехватке дней — сжатый пресет с явным списком выброшенного и ценой каждого выброса. Слоты в прошлом не создаются</td></tr>
+      <tr><td class="num">E-6</td>
+        <td>Дату перенесли на две недели. Часть слотов опубликована, часть отснята, часть правлена руками</td>
+        <td>Наивный пересчёт затирает ручные правки и двигает опубликованное. Неделя работы теряется без отката</td>
+        <td>Сдвиг — операция с предпросмотром. Опубликованное становится якорем и не двигается, ручные правки переживают пересчёт, есть отмена целиком</td></tr>
+      <tr><td class="num">E-7</td>
+        <td>Посты запуска попадают в общий контент-план</td>
+        <td>Регулярный контент выглядит сломанным, прогрев размыт, счётчики блога врут</td>
+        <td>Принадлежность запуску на единице плана; обычные экраны по умолчанию показывают только не-запусковое (см. <a href="#l3-data">модель данных</a>)</td></tr>
+      <tr><td class="num">E-8</td>
+        <td>Запуск построен в пробной организации, которая автоматически удаляется через сутки после окончания пробного периода</td>
+        <td>Весь запуск исчезает без предупреждения — на новом пользователе, до первой оплаты. Худший возможный первый опыт</td>
+        <td>Наличие запуска блокирует авто-удаление, включает предупреждение заранее и выгрузку. При создании — честно сказать про срок жизни данных</td></tr>
+      <tr><td class="num">E-9</td>
+        <td>Лимит тарифа кончился посреди пакетной генерации сорока слотов</td>
+        <td>Половина заполнена, половина пуста, какие именно — непонятно. Сверять руками сорок слотов</td>
+        <td>Расчёт стоимости до старта и проверка остатка: «хватит на N из M». У каждого слота свой статус генерации</td></tr>
+      <tr><td class="num">E-10</td>
+        <td>Эксперт и продюсер правят план одновременно</td>
+        <td>Сохраняется последний, чужая работа исчезает молча — ни один из двоих не узнаёт, что потерял</td>
+        <td>Блокировка по версии на уровне слота, а не всего плана. Видно, что в плане есть второй редактор</td></tr>
+      <tr><td class="num">E-11</td>
+        <td><strong>Продукт не готов к дате продаж:</strong> программа не собрана, оплата не подключена, доступы не нарезаны</td>
+        <td>Прогрев отработал — продавать нечего. Деньги и публичный кредит доверия сожжены, а система всю дорогу показывала зелёное, потому что проверяла только контент</td>
+        <td>Готовность продукта — <strong>вторая дорожка запуска</strong> со своими сроками. Её валидатор равен по весу «смыслы покрыты». См. <a href="#fr-10">FR-10</a></td></tr>
+      <tr><td class="num">E-12</td>
+        <td>Публикация опорного слота сорвалась — токен протух, канал заблокирован</td>
+        <td>Пропущен не пост, а предпосылка: следующие слоты ссылаются на то, чего аудитория не видела</td>
+        <td>Срыв публикации в запуске — событие высшего приоритета: немедленное уведомление и список смыслов, оставшихся без предпосылки</td></tr>
+      <tr><td class="num">E-13</td>
+        <td>Продюсер ведёт запуск клиента; модель прав — одна организация без ролей</td>
+        <td>Продюсер получает банк целиком (непубличные цифры, чужие кейсы) и все токены публикации. Монтажёру ради одного ролика открывается то же самое</td>
+        <td>Роли на уровне запуска: владелец / редактор / исполнитель без публикации. Исполнителю — только текст и задание по слоту</td></tr>
+      <tr><td class="num">E-14</td>
+        <td>Первый запуск в жизни: человек не знает слов «вброс идеи», «ажиотаж», видит 7 этапов, 11 рубрик, 36 смыслов и 18 триггеров</td>
+        <td>Закрывает вкладку. Это не плохой онбординг, а невыполненная работа по ориентации — он не знает, какие вообще бывают решения</td>
+        <td>Первый вход — не пустой конструктор, а три вопроса и готовый черновик. Термины раскрываются примером из его ниши. Триггеры и кривые скрыты до второго запуска</td></tr>
+      <tr><td class="num">E-15</td>
+        <td>За три дня до продаж не готово почти ничего</td>
+        <td>Система показывает сорок незакрытых слотов и красные проверки — усиливает панику. Человек бросает запуск целиком, хотя спасаемая часть была</td>
+        <td>Режим спасения: минимально достаточный набор смыслов, пять задач на сегодня и явный список того, чего можно <em>не</em> делать. Красные счётчики скрыты</td></tr>
+      <tr><td class="num">E-16</td>
+        <td>Короткий запуск на 14 дней — кривые интенсивности схлопываются</td>
+        <td>На один день приходится четыре смысла с почти равным весом, а система уверенно выбирает победителя по третьему знаку и подаёт это как расчёт</td>
+        <td>Минимальная длина этапа в днях. При схлопывании — показать равнозначные варианты и дать выбрать, а не решать за пользователя</td></tr>
+      <tr><td class="num">E-17</td>
+        <td>Рекомендация смысла подаётся как результат расчёта, хотя это непроверенная эвристика</td>
+        <td>Пользователь перестаёт думать и принимает раскладку целиком; ошибка тиражируется на весь запуск с полным доверием</td>
+        <td>У каждой рекомендации виден источник: методология / кривая / ваш прошлый запуск / догадка. Уверенность формулируется словами, а не подразумевается видом интерфейса</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Важные — создают вынужденную ручную работу</h4>
+  <div class="tw">
+  <table>
+    <thead><tr><th>#</th><th>Случай</th><th>Что ломается</th><th>Требование</th></tr></thead>
+    <tbody>
+      <tr><td class="num">E-18</td><td>Банк идей пуст (новый пользователь)</td><td>«Не хватает 36» и тупик на шаге, до которого человек уже дошёл через настройку</td><td>Модуль не блокируется: генерация идей под непокрытые смыслы из контекста бренда плюс короткий режим интервью, наполняющий банк ровно под дыры</td></tr>
+      <tr><td class="num">E-19</td><td>Банк на 500 идей без разметки</td><td>Человек листает 500 строк под каждый из 36 смыслов — самая тяжёлая ручная работа во всём модуле</td><td>Подбор объясняет «почему эта» и учится на отклонениях. Массовая разметка — мастер батчами по 20 с подтверждением</td></tr>
+      <tr><td class="num">E-20</td><td>Идея уже использована в прошлом запуске</td><td>Тот же кейс на ту же аудиторию второй раз — считывается как «ему нечего сказать», ровно когда решается покупка</td><td>Пометка «использовано N дней назад, площадка, отклик». Повтор разрешён с флагом</td></tr>
+      <tr><td class="num">E-21</td><td>Седьмой поток, повторный запуск</td><td>Система разворачивает с нуля, игнорируя лучший источник — прошлый план и его результаты</td><td>«Создать на основе прошлого запуска»: каденс, смыслы, оценки эффективности. Плохо отработавшие смыслы помечены</td></tr>
+      <tr><td class="num">E-22</td><td>Два параллельных запуска на одни дни</td><td>Аудитория получает два прогрева сразу и не покупает ни один; система оба считает идущими по плану</td><td>Обнаружение коллизий между запусками и общий календарь с предупреждением о перегрузе дня</td></tr>
+      <tr><td class="num">E-23</td>
+        <td><strong>Этапы кончаются датой открытия продаж</strong></td>
+        <td>Прогрев обрывается там, где делается основная часть выручки: дожим, снятие возражений, последний день. В разобранном кейсе после открытия продаж добрали 25 млн из 75 — треть запуска</td>
+        <td>Этапы продолжаются за дату открытия. Дата закрытия — такой же якорь, как дата открытия. См. <a href="#fr-9">FR-9</a></td></tr>
+      <tr><td class="num">E-24</td><td>Передача эксперт → монтажёр</td><td>Уходит в мессенджер, контекст теряется, приходит не то. Передачи между ролями дают большинство разрывов в цепочке</td><td>У слота исполнитель, срок производства (отдельный от даты публикации) и статус: снято / смонтировано / принято</td></tr>
+      <tr><td class="num">E-25</td><td>Монтаж забракован, до публикации сутки</td><td>Второй проход ощущается как работа без прогресса; система не показывает, что слот уже не успевает</td><td>Срок производства с буфером; возврат на переделку пересчитывает риск и подсвечивает неуспевающие слоты</td></tr>
+      <tr><td class="num">E-26</td><td>Сорок текстов сгенерированы за час, снимать их — двенадцать съёмочных дней</td><td>Система разгоняет и так быстрое звено и создаёт иллюзию готовности. Очередь копится перед камерой</td><td>Группировка слотов в съёмочные дни и расчёт нужного их числа <em>до</em> генерации</td></tr>
+      <tr><td class="num">E-27</td><td>Запуск без бесплатника и вебинара</td><td>Этап «прогрев к ключевому шагу» повисает без якоря, зависимые проверки молча проходят</td><td>Ключевое событие опционально; без него — другая схема этапов, а зависимые проверки отключаются явно с записью «не проверялось»</td></tr>
+      <tr><td class="num">E-28</td><td>Ниша с длинным циклом решения против импульсной</td><td>Дефолт «мягкий прогрев 10–30 дней» для одной вдвое мал, для другой абсурден. Человек следует цифре, потому что она выглядит методологической</td><td>Длительности — пресеты по типу продукта и чеку, а не константы. Видно, от чего зависит цифра</td></tr>
+      <tr><td class="num">E-29</td><td>Блог на 500 подписчиков и каденс на 40+ единиц</td><td>Человек выгорает на производстве и не доходит до продаж, а план формально выполнен</td><td>Каденс масштабируется от размера аудитории. Система честно говорит, что при таком блоге решает не частота, а набор аудитории</td></tr>
+      <tr><td class="num">E-30</td><td>Заболел, выпал на неделю, 12 слотов просрочено</td><td>Просроченное висит красным навсегда; непонятно, догонять или сдвигать. Большинство одношаговых отвалов — это прерывание, а не отказ</td><td>Пауза запуска: сдвиг всей оставшейся цепочки одним действием либо догон со сжатием. По каждому просроченному — решение «перенести / выбросить»</td></tr>
+      <tr><td class="num">E-31</td><td>Ключевое событие перенесено или не состоялось</td><td>Уже опубликованные анонсы врут аудитории</td><td>Перенос события пересчитывает только зависимые этапы; опубликованные анонсы попадают в список «требуют переанонса»</td></tr>
+      <tr><td class="num">E-32</td><td>Скилл генерации получает идею, но не получает этап, смысл, триггер и соседние слоты</td><td>Текст выходит нейтральным, вне драматургии — генерация из слота ничем не отличается от генерации с канваса, и модуль превращается в дорогой календарь</td><td>Контракт передачи включает этап, смысл, триггер, соседние слоты, даты открытия и закрытия и то, что уже сказано аудитории. Без полного контекста генерация не стартует</td></tr>
+      <tr><td class="num">E-33</td><td>В понедельник сгенерировано «я никогда не вёл групп», в среду — «мой пятый поток»</td><td>Противоречие видит аудитория, а не система. Доверие рушится там, где оно конвертируется в оплату</td><td>Линейка фактов запуска (номер потока, цена, обещания) подставляется во все генерации и правится в одном месте</td></tr>
+      <tr><td class="num">E-34</td><td>Цена или дедлайн поменялись в середине прогрева</td><td>Старая цена вшита в пятнадцать сгенерированных текстов и четыре опубликованных</td><td>Параметры запуска — переменные. При изменении показывается список слотов со старым значением, отдельно — опубликованные</td></tr>
+      <tr><td class="num">E-35</td><td>Смысл, требующий развёрнутого разбора, назначен на короткий формат</td><td>Смысл формально закрыт, фактически не донесён; проверка не видит проблемы</td><td>У смысла — рекомендованные форматы, при несовпадении предупреждение</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <details>
+    <summary>Средние и низкие — ещё 29 случаев</summary>
+    <div class="dbody">
+      <p>Не становятся требованиями первой недели, но должны быть в бэклоге. Коротко, по группам:</p>
+      <ul>
+        <li><strong>Идемпотентность и повторные операции:</strong> повторный разворот календаря плодит дубли; смена каденса после раскладки сносит назначения; нет отмены мелких действий.</li>
+        <li><strong>Целостность связей:</strong> идею отредактировали или удалили в банке после привязки к слоту; у слота накопилось четыре версии текста и непонятно, какая пойдёт в публикацию; удаление запуска уносит опубликованное из истории.</li>
+        <li><strong>Время:</strong> дата и время слота без часового пояса — дедлайн-контент выходит после дедлайна; локаль и первый день недели ломают каденс «пн/ср/пт».</li>
+        <li><strong>Реальность вместо системы:</strong> слот опубликован вручную мимо продукта; слот молча уехал в прошлое без фиксации причины; человек заходит раз в неделю, а прогрев — ежедневная дисциплина.</li>
+        <li><strong>Вход и выход:</strong> у человека уже есть план в таблице и переносить дороже, чем вести дальше там; нет экспорта и печатного вида, команда всё равно уезжает в общий документ.</li>
+        <li><strong>Масштаб:</strong> запуск на полгода с ежедневными слотами кладёт страницу; продюсер ведёт пять клиентов и хочет шаблон без чужой фактуры.</li>
+        <li><strong>Формулировки:</strong> названия этапов на жаргоне («вброс», «ажиотаж») часть людей читает как инструкцию по манипуляции; нарушение порядка этапов сообщается номерами, а не последствием.</li>
+        <li><strong>Прочее:</strong> табу бренда проверяется только после генерации; аудитория, пришедшая в середине прогрева, не видела начала; метрики прогрева не отделены от обычных.</li>
+      </ul>
+    </div>
+  </details>
+
+  <div class="callout note">
+    <p class="ct">Что сознательно не покрыто</p>
+    <p>Юридическая сторона продаж (оферта, чеки, маркировка рекламы) — смежная область, не наша цепочка. Взаимоисключающие смыслы и смыслы с обязательным предшественником — появятся, когда список из 36 будет зафиксирован. Математика кривых проверена на схлопывании при коротком запуске, но не на перекрытии соседних кривых и поведении на границах — нужен отдельный проход, когда формулы будут написаны. Мультиканальность одного смысла (Stories + Reels + пост с адаптацией) — отдельная функция, а не пограничный случай.</p>
+  </div>
+
+  <div class="trace">▸ методологический след. Случаи порождены из мест разрыва цепочки (передачи между ролями, возвраты на переделку, самое медленное звено, внешние прерывания), вариаций контекста, вынужденной работы при отказе шага и типов работ (ориентация у новичка, тревожное состояние, работа за другого). Важность — от значимости работы уровнем выше: критичный разрыв запускает поиск замены в тот же день.</div>
+</section>
+
+<section id="l3-parity">
+  <h3>7 · Конкурентный паритет</h3>
+
+  <div class="callout note">
+    <p class="ct">Оговорка по методу</p>
+    <p>Прямое открытие страниц в этой среде было заблокировано на всех доменах, поэтому факты ниже собраны из поисковой выдачи, а не подтверждены на сайтах вендоров. Цены и функциональность <strong>требуют перепроверки перед решением о цене</strong>. Отдельно не удалось подтвердить: цену «Прогревариума», реальную функциональность Launchy.ai (только маркетинговые описания с партнёрских сайтов) и дословные отзывы с обзорных площадок.</p>
+  </div>
+
+  <h4>Рынок расколот на два полюса, между ними почти пусто</h4>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Полюс</th><th>Кто там</th><th>На какой вопрос отвечает</th><th>Чего не делает</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Методология без исполнения</strong></td>
+        <td>Product Launch Formula Джеффа Уокера ($1 997 или 6×$397), «Прогревариум» / Scenarium (Telegram-бот, РФ), статьи в блоге GetCourse, планировщики-шаблоны на Etsy и Notion</td>
+        <td>Что должно произойти в голове зрителя к моменту открытия продаж</td>
+        <td>Выдаёт ответ текстом, который человек руками переносит в таблицу и забывает</td>
+      </tr>
+      <tr>
+        <td><strong>Исполнение без методологии</strong></td>
+        <td>GetCourse, Kajabi, Salebot, Teachable, Podia, Later, Buffer, SMMplanner</td>
+        <td>Во сколько выйдет пост</td>
+        <td>Молчит о том, зачем этот пост и что он должен закрыть</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Единственный, кто стоит между полюсами</h4>
+  <p><strong>Launchy.ai</strong> — AI-инструмент самого Джеффа Уокера, обученный на его методологии запусков: строит таймлайн запуска, стратегию сообщений, путь «проблема → решение», планирование контента. По сути это и есть методологический конструктор запуска. Но позиционирован он так, что позиция остаётся свободной:</p>
+  <ul>
+    <li>не продаётся отдельно — только как бонус к курсу за $1 997, на 12 месяцев;</li>
+    <li>это планировщик, а не конвейер: не подключён к источникам, не производит финальный контент под площадку, не публикует;</li>
+    <li>автор прямо говорит, что не обещает включать его в следующий запуск курса.</li>
+  </ul>
+  <p>В русскоязычном рынке единственный, кто называет себя конструктором прогревов, — <strong>«Прогревариум»</strong>: Telegram-бот с закрытой авторской методологией и непубличной ценой. Не SaaS и не конвейер.</p>
+
+  <div class="callout">
+    <p class="ct">Главная находка</p>
+    <p><strong>Проверки полноты прогрева нет ни у одного найденного продукта.</strong> Чек-листы полноты существуют — но как текст в статьях, а не как функция в интерфейсе. Механики, которая скажет «этап осознания проблемы пропущен» или «нет ни одного касания с доказательством результата», на рынке не пробовал никто. Это и есть наш клин.</p>
+  </div>
+
+  <h4>Где паритет обязателен, а где мы отличаемся</h4>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Функция</th><th>Кто уже даёт</th><th>Наша позиция</th></tr></thead>
+    <tbody>
+      <tr><td>Календарь публикаций и очередь</td><td>все планировщики, $19–69/мес</td><td><span class="sev m">паритет обязателен</span> — без него не воспринимают как инструмент</td></tr>
+      <tr><td>Генерация текста по теме</td><td>GetCourse (утилита «Контент-план»: 40–50 тем за 15 секунд), Jasper, Copy.ai</td><td><span class="sev m">паритет</span> — у нас уже есть, но это не отличие</td></tr>
+      <tr><td>Разворот запуска по этапам</td><td>Launchy.ai (только с курсом), «Прогревариум» (бот)</td><td><span class="sev h">клин</span> — свободно как отдельный продукт</td></tr>
+      <tr><td><strong>Проверка полноты прогрева</strong></td><td>никто</td><td><span class="sev c">главный клин</span></td></tr>
+      <tr><td>Сквозной путь смысл → идея → текст → публикация</td><td>у Launchy обрыв после плана, у платформ — обрыв до плана</td><td><span class="sev c">клин</span> — ContentOS держит оба конца</td></tr>
+      <tr><td>Приём платежей, доступы, LMS</td><td>GetCourse, Kajabi</td><td><span class="sev l">не конкурируем</span> — мы слой выше, их стек остаётся</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Ценовые якоря</h4>
+  <p>Коридор задан с двух сторон. Сверху — <strong>$1 997 за одну методологию без софта</strong> (курс Уокера). Снизу — <strong>$19–69/мес за календарь без методологии</strong>. Российский стек эксперта с запусками — порядка 23–25 тыс. ₽/мес на софт (GetCourse на тарифе «Профи» — 21 100 ₽/мес плюс 3,5% с каждой продажи), американский — $150–350/мес.</p>
+  <p>Существенная деталь для позиционирования: тариф GetCourse растёт от <em>размера накопленной базы</em>, а не от числа активных учеников — то есть чем дольше эксперт живёт с запусками, тем дороже ему просто хранить контакты. Мы в этот счёт не добавляемся: становимся слоем выше, их стек не заменяем.</p>
+
+  <div class="callout risk">
+    <p class="ct">Риск, который надо записать честно</p>
+    <p><strong>Методология — единственный настоящий барьер, и она же самая копируемая часть.</strong> Kajabi в 2026 уже выпустил AI-ассистента, который собирает контекст бизнеса перед выдачей рекомендаций. До «а теперь разложи мне запуск по этапам» им остался один релиз. Защита не в наличии методологии, а в двух вещах: её <em>проверяемости</em> (валидатор, который называет пропуск и его цену) и связке с конвейером, который у платформ обрывается на генерации тем.</p>
+  </div>
+</section>
+
+<section id="l3-metrics">
+  <h3>8 · Метрики успеха</h3>
+  <p>Критерии успеха сегмента переведены в измеримое. Ни одна метрика не обещает связи с выручкой клиента — методология прямо предупреждает, что такая атрибуция вводит в заблуждение.</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Что меряем</th><th>Почему это</th><th>Ориентир</th></tr></thead>
+    <tbody>
+      <tr><td>Доля новых пользователей, дошедших до первой названной находки</td><td>Прямая метрика момента ценности</td><td class="num">&gt; 60%</td></tr>
+      <tr><td>Время от входа до первой находки</td><td>Насколько влево сдвинут момент ценности</td><td class="num">&lt; 60 сек</td></tr>
+      <tr><td>Доля слотов с назначенной идеей</td><td>Отличает план от красивой сетки</td><td class="num">&gt; 80%</td></tr>
+      <tr><td>Доля находок, по которым пользователь что-то сделал</td><td>Проверяет, что диагноз воспринят как настоящий</td><td class="num">&gt; 30%</td></tr>
+      <tr><td>Доля дней запуска с фактической публикацией</td><td>Единственная метрика, доживающая до конца запуска</td><td class="num">замер базы</td></tr>
+      <tr><td>Второй запуск в том же аккаунте</td><td>Главная метрика повторяемости сегмента</td><td class="num">факт/нет</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>Полярная звезда:</strong> эксперт проводит второй запуск подряд в ContentOS. Всё остальное — промежуточные показатели.</p>
+</section>
+
+<section id="l3-risk">
+  <h3>9 · Риски и что вне рамок</h3>
+  <div class="tw">
+  <table>
+    <thead><tr>
+      <th>#</th><th>Допущение<span class="gloss">в утвердительной форме</span></th><th>Смертельно?</th><th>Самая дешёвая проверка</th>
+    </tr></thead>
+    <tbody>
+      <tr><td class="num">R-1</td>
+        <td>Эксперт считает планирование прогрева своей болью и платит за её снятие</td>
+        <td><span class="sev c">да</span></td>
+        <td>5 разговоров про прошлый запуск. Доступ есть — делать на этой же неделе</td></tr>
+      <tr><td class="num">R-2</td>
+        <td>Сегмент «продаёт через контент блога» достаточно велик и достижим</td>
+        <td><span class="sev c">да</span></td>
+        <td>В тех же разговорах: доля продаж от блога против платного трафика</td></tr>
+      <tr><td class="num">R-3</td>
+        <td>Диагностика воспринимается как ценность, а не как упрёк</td>
+        <td><span class="sev c">да</span></td>
+        <td>Показать одному эксперту разбор его реального прогрева и посмотреть реакцию</td></tr>
+      <tr><td class="num">R-4</td>
+        <td>У эксперта есть банк идей или он готов его завести</td>
+        <td><span class="sev h">нет</span></td>
+        <td>Спросить, где сейчас лежат идеи. Если нигде — нужен режим с пустым банком</td></tr>
+      <tr><td class="num">R-5</td>
+        <td>Методология переносится за пределы ниши автора</td>
+        <td><span class="sev h">нет</span></td>
+        <td>Чек-лист двум экспертам из разных ниш</td></tr>
+      <tr><td class="num">R-6</td>
+        <td>Автоматическая разметка достаточно точна, чтобы на ней строить вердикты</td>
+        <td><span class="sev h">нет</span></td>
+        <td>Проверить 30 случайных идей вручную. Митигировано полем происхождения разметки</td></tr>
+      <tr><td class="num">R-7</td>
+        <td>Модуль реально влезает в неделю</td>
+        <td><span class="sev m">нет</span></td>
+        <td>Порезать до FR-1…FR-5 и признать интерфейс минимальным</td></tr>
+      <tr><td class="num">R-8</td>
+        <td>Методологический слой остаётся барьером дольше, чем один релиз конкурента</td>
+        <td><span class="sev h">нет</span></td>
+        <td>Не проверяется заранее — отслеживается. Платформы уже выпускают AI-ассистентов, собирающих контекст бизнеса; до «разложи запуск по этапам» им один шаг. Защита не в методологии, а в её проверяемости и связке с конвейером</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout risk">
+    <p class="ct">Что проверять первым</p>
+    <p><strong>R-1.</strong> Оно наверху не потому, что вероятнее всего неверно, а потому что при недельной стройке и бесплатной проверке отношение «цена ошибки к цене проверки» здесь худшее из всех. Пробник — не продукт, а разговор.</p>
+  </div>
+
+  <h4>Вне рамок</h4>
+  <ul>
+    <li><strong>Производственный контур</strong> — съёмочные задачи, монтаж, статусы исполнителей. Это главное узкое место клиента, и именно поэтому его нельзя делать наспех за неделю.</li>
+    <li><strong>Атрибуция продаж</strong> — связь кодового слова, ссылки и оплаты. Требует интеграций; у заказчика этот контур не замкнут ни разу, так что образца тоже нет.</li>
+    <li><strong>Работа нескольких людей над одним запуском</strong> — роли, права, согласование. Второй сегмент (агентства), сознательно отложен.</li>
+    <li><strong>Автоматическая публикация по расписанию</strong> для площадок, кроме уже поддержанных.</li>
+  </ul>
+
+  <div class="trace">▸ методологический след. Риски отранжированы по отношению «вероятность × цена ошибки / цена проверки». Пробник понимается как проба на допущение, а не как маленькая версия продукта: R-1 проверяется разговором, а не сборкой.</div>
+</section>
+
+<section id="checklist">
+  <h3>Проверка перед стройкой</h3>
+  <ol>
+    <li>Провести 5 разговоров по R-1 и R-2 — <strong>на этой же неделе, параллельно</strong>.</li>
+    <li>Показать одному эксперту разбор его реального прогрева (R-3).</li>
+    <li>Выверить вручную 30 случайных идей банка (R-6) — до того, как валидатор начнёт выдавать вердикты.</li>
+    <li>Подтвердить у заказчика, сколько запусков он реально провёл по своему файлу.</li>
+    <li>Показать заказчику четыре вопроса покупателя и сверить с его делением «личность / тема».</li>
+  </ol>
+  <p class="small">Дисклеймеры — в начале документа, здесь не повторяются.</p>
+</section>
+
+<footer>
+  <p>PRD собран по методологии Advanced JTBD / Next Move Theory. Источники фактуры: репозиторий материалов запуска заказчика (6 уроков методологии, банк из 498 идей, 18 канонических триггеров, разбор запуска на 75 млн, исходники инструмента) и модели данных ContentOS.</p>
+</footer>
+
+</main>
+</div>
