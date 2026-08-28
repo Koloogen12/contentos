@@ -50,6 +50,14 @@ def _anthropic() -> AsyncAnthropic:
     Прокси остался только там, где у Anthropic нет аналога: эмбеддинги,
     распознавание речи, генерация картинок. Разделение проходит по
     возможностям провайдера, а не по типу задачи.
+
+    Единственная точка конфигурации Anthropic-клиента в бэкенде — если
+    появится ещё одна LLM-фича, ей сюда же, а не заводить свой клиент.
+    ANTHROPIC_BASE_URL пуст → SDK идёт напрямую в api.anthropic.com (дев,
+    не-РФ). Задан → это релей (Cloudflare Worker, см.
+    tools/anthropic-proxy-worker), и вместе с ним обязателен
+    ANTHROPIC_PROXY_KEY — воркер сверяет его заголовком x-proxy-key и сам
+    подставляет x-api-key дальше.
     """
     global _anthropic_client
     if _anthropic_client is None:
@@ -57,7 +65,16 @@ def _anthropic() -> AsyncAnthropic:
             raise RuntimeError(
                 "Генерация текста не настроена: на сервере нет ANTHROPIC_API_KEY."
             )
-        _anthropic_client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        default_headers = (
+            {"x-proxy-key": settings.ANTHROPIC_PROXY_KEY}
+            if settings.ANTHROPIC_PROXY_KEY
+            else None
+        )
+        _anthropic_client = AsyncAnthropic(
+            api_key=settings.ANTHROPIC_API_KEY,
+            base_url=settings.ANTHROPIC_BASE_URL or None,
+            default_headers=default_headers,
+        )
     return _anthropic_client
 
 

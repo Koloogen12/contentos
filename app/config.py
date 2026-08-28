@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     AI_PROVIDER: str = "cometapi"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-5"
+    # Релей: Cloudflare Worker (tools/anthropic-proxy-worker), т.к. сам
+    # api.anthropic.com 403-ит запросы с российских IP. Пусто → SDK идёт
+    # напрямую в api.anthropic.com (дев-машины не в РФ). Задан → SDK шлёт
+    # запросы на этот URL, а Worker сам подставляет x-api-key и форвардит.
+    ANTHROPIC_BASE_URL: str = ""
+    # Заголовок x-proxy-key к каждому запросу через релей — свой секрет
+    # (сверяется воркером), не путать с ANTHROPIC_API_KEY. Нужен только
+    # если задан ANTHROPIC_BASE_URL.
+    ANTHROPIC_PROXY_KEY: str = ""
 
     # Прокси остаётся для того, чего у Anthropic нет: эмбеддинги для поиска
     # похожих образцов голоса, распознавание речи и генерация картинок.

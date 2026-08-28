@@ -68,6 +68,13 @@ set_if_absent TELEGRAM_BOT_TOKEN          ""
 set_if_absent S3_ENDPOINT_URL             ""
 set_if_absent S3_ACCESS_KEY               ""
 set_if_absent S3_SECRET_KEY               ""
+# Anthropic напрямую через релей (tools/anthropic-proxy-worker) — прод в
+# Москве, api.anthropic.com напрямую 403-ит. AI_PROVIDER остаётся
+# "cometapi", пока ключи не заполнены руками и провайдер не переключён.
+set_if_absent AI_PROVIDER                 "cometapi"
+set_if_absent ANTHROPIC_API_KEY           ""
+set_if_absent ANTHROPIC_BASE_URL          "https://ai.neurin.tech"
+set_if_absent ANTHROPIC_PROXY_KEY         ""
 
 # Read back what we have
 PG_PASS="$(grep '^POSTGRES_PASSWORD=' "$SECRETS_FILE" | cut -d= -f2-)"
@@ -131,5 +138,8 @@ Still empty (paste manually before bringing the stack up):
   - COMETAPI_KEY        (required)
   - TELEGRAM_BOT_TOKEN  (optional)
   - S3_*                (optional, falls back to local files)
+  - ANTHROPIC_API_KEY   (optional — fill + set AI_PROVIDER=anthropic to
+                         switch off CometAPI; ANTHROPIC_PROXY_KEY must match
+                         the PROXY_KEY secret on the ai.neurin.tech worker)
 ============================================================
 EOF
