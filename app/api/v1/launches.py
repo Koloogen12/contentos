@@ -316,6 +316,8 @@ async def get_report(
         triggers_total=report.triggers_total,
         slots_total=report.slots_total,
         slots_with_idea=report.slots_with_idea,
+        bank_total=report.bank_total,
+        bank_marked=report.bank_marked,
     )
 
 

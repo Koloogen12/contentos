@@ -22,6 +22,11 @@ ENV PYTHONUNBUFFERED=1 \
 # install падает с «Unable to locate package». При этом обычные зеркала с
 # того же сервера открываются. Поэтому источник вынесен в аргумент сборки:
 # локально и в CI ничего не меняется, а деплой передаёт рабочее зеркало.
+#
+# Третья строка — bookworm-security. Она обязательна: базовый образ держит
+# security-репозиторий отдельным файлом в sources.list.d, который стирается
+# вместе с остальными. Без неё ffmpeg, curl, build-essential, libpq-dev и весь
+# набор библиотек Chromium ставятся без выпущенных security-патчей.
 ARG APT_MIRROR=""
 
 RUN if [ -n "$APT_MIRROR" ]; then \
@@ -29,6 +34,7 @@ RUN if [ -n "$APT_MIRROR" ]; then \
         { \
           echo "deb http://$APT_MIRROR bookworm main"; \
           echo "deb http://$APT_MIRROR bookworm-updates main"; \
+          echo "deb http://${APT_MIRROR%%/*}/debian-security bookworm-security main"; \
         } > /etc/apt/sources.list; \
     fi \
     && apt-get update && apt-get install -y --no-install-recommends \

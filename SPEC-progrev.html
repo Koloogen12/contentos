@@ -1,0 +1,968 @@
+<title>Конструктор прогревов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --paper: #F5F6F4;
+  --surface: #FFFFFF;
+  --surface-2: #EEF0ED;
+  --ink: #161A18;
+  --muted: #5A625E;
+  --faint: #8B938E;
+  --rule: #DEE2DE;
+  --accent: #16544A;
+  --accent-soft: #E3EDEA;
+  --ours: #8A4B12;
+  --ours-soft: #F6EBDF;
+  --warn: #A8452F;
+  --warn-soft: #F7E7E3;
+
+  --s1: #8E9AA3;
+  --s2: #6E86B8;
+  --s3: #7C74C4;
+  --s4: #9A6BB8;
+  --s5: #C06A9E;
+  --s6: #D98A4E;
+  --s7: #C9553D;
+
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --prose: 68ch;
+  --wide: 1120px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #131715;
+    --surface: #1A1F1C;
+    --surface-2: #222825;
+    --ink: #E8EBE7;
+    --muted: #9AA39D;
+    --faint: #6E7772;
+    --rule: #2C332F;
+    --accent: #5FBAA8;
+    --accent-soft: #172E29;
+    --ours: #D69B62;
+    --ours-soft: #2E2419;
+    --warn: #E08B78;
+    --warn-soft: #2E1E1A;
+
+    --s1: #7B858D;
+    --s2: #7E96C8;
+    --s3: #8C85D2;
+    --s4: #A97CC6;
+    --s5: #CE7EAE;
+    --s6: #E09B62;
+    --s7: #D96952;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #131715;
+  --surface: #1A1F1C;
+  --surface-2: #222825;
+  --ink: #E8EBE7;
+  --muted: #9AA39D;
+  --faint: #6E7772;
+  --rule: #2C332F;
+  --accent: #5FBAA8;
+  --accent-soft: #172E29;
+  --ours: #D69B62;
+  --ours-soft: #2E2419;
+  --warn: #E08B78;
+  --warn-soft: #2E1E1A;
+
+  --s1: #7B858D;
+  --s2: #7E96C8;
+  --s3: #8C85D2;
+  --s4: #A97CC6;
+  --s5: #CE7EAE;
+  --s6: #E09B62;
+  --s7: #D96952;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 17px;
+  line-height: 1.6;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: var(--wide);
+  margin: 0 auto;
+  padding: 0 28px 120px;
+}
+
+.prose { max-width: var(--prose); }
+
+h1, h2, h3, h4 {
+  font-family: var(--f-display);
+  text-wrap: balance;
+  margin: 0;
+  letter-spacing: -0.015em;
+}
+
+/* ---------- шапка ---------- */
+
+.masthead {
+  padding: 72px 0 40px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 48px;
+}
+.eyebrow {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+.masthead h1 {
+  font-size: clamp(34px, 5.2vw, 56px);
+  font-weight: 700;
+  line-height: 1.04;
+  margin-bottom: 20px;
+}
+.standfirst {
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 60ch;
+  margin: 0;
+}
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin-top: 32px;
+  font-family: var(--f-mono);
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.meta-row b { color: var(--ink); font-weight: 500; }
+
+/* ---------- секции ---------- */
+
+section { margin-bottom: 72px; scroll-margin-top: 24px; }
+
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.sec-num {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  color: var(--accent);
+  flex: none;
+  padding-top: 2px;
+}
+.sec-head h2 {
+  font-size: clamp(23px, 3vw, 30px);
+  font-weight: 600;
+}
+.lede {
+  font-size: 18px;
+  color: var(--muted);
+  max-width: var(--prose);
+  margin: 0 0 28px;
+}
+
+h3 {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 36px 0 10px;
+}
+h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 24px 0 8px;
+}
+p { margin: 0 0 16px; max-width: var(--prose); }
+ul, ol { max-width: var(--prose); padding-left: 22px; margin: 0 0 18px; }
+li { margin-bottom: 7px; }
+
+code, .k {
+  font-family: var(--f-mono);
+  font-size: 0.855em;
+  background: var(--surface-2);
+  padding: 1.5px 5px;
+  border-radius: 3px;
+  color: var(--ink);
+}
+
+a { color: var(--accent); }
+
+/* ---------- метки ---------- */
+
+.tag {
+  display: inline-block;
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.tag-ours { background: var(--ours-soft); color: var(--ours); }
+.tag-src  { background: var(--surface-2); color: var(--muted); }
+.tag-gap  { background: var(--warn-soft); color: var(--warn); }
+
+/* ---------- таблицы ---------- */
+
+.scroll { overflow-x: auto; margin: 0 0 24px; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14.5px;
+  font-family: var(--f-display);
+  font-weight: 500;
+}
+th, td {
+  text-align: left;
+  padding: 9px 14px 9px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+th {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 400;
+  white-space: nowrap;
+}
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 18px; }
+td small { display: block; font-family: var(--f-body); font-weight: 400; font-size: 13.5px; color: var(--muted); line-height: 1.45; margin-top: 3px; }
+
+.dot {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  margin-right: 9px;
+  vertical-align: 0;
+}
+
+/* ---------- ось этапов ---------- */
+
+.axis {
+  display: flex;
+  height: 40px;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 4px 0 10px;
+  min-width: 560px;
+}
+.axis div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: #fff;
+}
+.axis-legend {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  color: var(--faint);
+  min-width: 560px;
+  margin-bottom: 26px;
+}
+
+/* ---------- карточки фаз ---------- */
+
+.phase {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 0 20px;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.phase:last-child { border-bottom: 0; }
+.phase-n {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  color: var(--accent);
+  padding-top: 4px;
+}
+.phase h3 { margin: 0 0 6px; font-size: 19px; }
+.phase p { margin-bottom: 12px; }
+.phase-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  max-width: 900px;
+  margin-top: 14px;
+}
+.pg-item {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.pg-item h5 {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 6px;
+  font-weight: 400;
+}
+.pg-item p { font-size: 14.5px; margin: 0; line-height: 1.5; color: var(--ink); }
+
+/* ---------- выноски ---------- */
+
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 16px 20px;
+  border-radius: 0 6px 6px 0;
+  margin: 0 0 24px;
+  max-width: var(--prose);
+}
+.callout.gap { border-left-color: var(--warn); background: var(--warn-soft); }
+.callout.ours { border-left-color: var(--ours); background: var(--ours-soft); }
+.callout p:last-child { margin-bottom: 0; }
+.callout h4 { margin-top: 0; }
+
+/* ---------- экраны ---------- */
+
+.screen {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+.screen-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.screen-top h3 { margin: 0; font-size: 18px; }
+.screen-q {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+.screen dl {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 7px 18px;
+  margin: 14px 0 0;
+  font-size: 15px;
+}
+.screen dt {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding-top: 4px;
+}
+.screen dd { margin: 0; }
+
+/* ---------- матрица квот ---------- */
+
+.mix td.q { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.mix td.z { color: var(--faint); }
+
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .wrap { padding: 0 18px 80px; }
+  .phase { grid-template-columns: 1fr; gap: 0; }
+  .phase-n { padding-top: 0; margin-bottom: 4px; }
+  .screen dl { grid-template-columns: 1fr; gap: 2px 0; }
+  .screen dt { padding-top: 10px; }
+}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Спецификация модуля · ContentOS · август 2026</p>
+  <h1>Конструктор прогревов</h1>
+  <p class="standfirst">Полная методология запуска инфопродукта, переведённая в данные, правила и экраны. Всё, что нужно, чтобы собрать модуль заново — без чтения кода.</p>
+  <div class="meta-row">
+    <span>Этапов: <b>7</b></span>
+    <span>Рубрик: <b>12</b></span>
+    <span>Смыслов: <b>40</b></span>
+    <span>Рычагов: <b>18</b></span>
+    <span>Вопросов покупателя: <b>4</b></span>
+    <span>Проверок: <b>8</b></span>
+  </div>
+</header>
+
+<section id="scope">
+  <div class="sec-head"><span class="sec-num">00</span><h2>Что это за документ</h2></div>
+  <p class="lede">Первоисточник — шесть уроков по прогреву к запуску инфопродукта и разбор кейса на 75 млн. Здесь методология разобрана на справочники, алгоритмы и правила проверки, дополнена там, где в ней дыры, и уложена в пайплайн производства.</p>
+
+  <p>Три метки по всему документу:</p>
+  <ul>
+    <li><span class="tag tag-src">источник</span> — взято из уроков как есть.</li>
+    <li><span class="tag tag-ours">наше</span> — решение принято нами, потому что в источнике этого нет или там противоречие. Через полгода это важно различать, чтобы не выдать свой дефолт за цитату.</li>
+    <li><span class="tag tag-gap">дыра</span> — в источнике пробел, который мы пока не закрыли. Требует решения.</li>
+  </ul>
+
+  <div class="callout gap">
+    <h4>Главный вывод из первой сборки модуля</h4>
+    <p>Первая версия делала три вещи: размечала банк идей, разворачивала календарь, подставляла идеи в слоты. Этого мало для реального запуска. Прогрев начинается не с календаря, а с инвентаризации фактуры — того, чем вообще есть что доказывать. Слот в календаре — это следствие. Пайплайн в разделе 09 исправляет именно это.</p>
+  </div>
+</section>
+
+<section id="model">
+  <div class="sec-head"><span class="sec-num">01</span><h2>Модель данных</h2></div>
+  <p class="lede">Шесть сущностей. Всё остальное — справочники, они неизменяемы и живут в коде, а не в базе.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Сущность</th><th>Ключевые поля</th><th>Смысл</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>Запуск</b><br><code>launch</code></td>
+        <td><code>sales_open</code>, <code>sales_close</code>, <code>key_event_date</code>, <code>key_event_type</code>, <code>launch_number</code>, <code>intensity</code>, <code>durations</code>, <code>readiness</code>, <code>waitlist_goal</code>, <code>status</code></td>
+        <td>Рамка. Единственное обязательное — дата открытия продаж: от неё всё считается назад.</td>
+      </tr>
+      <tr>
+        <td><b>Фактура</b><br><code>evidence</code> <span class="tag tag-gap">не построено</span></td>
+        <td><code>checkpoint_key</code>, <code>kind</code>, <code>status</code>, <code>proof_url</code>, <code>needed_by</code>, <code>owner</code></td>
+        <td>Чем закрывается конкретный смысл: кейс, отзыв, цифра, скрин, история провала. Без этого слоты нечем наполнять.</td>
+      </tr>
+      <tr>
+        <td><b>Сюжетная линия</b><br><code>story_line</code></td>
+        <td><code>title</code>, <code>payoff</code>, <code>announced_on</code>, <code>closes_on</code>, <code>is_closed</code></td>
+        <td>Обещание, растянутое на недели. Анонс без закрытия — сожжённое доверие.</td>
+      </tr>
+      <tr>
+        <td><b>Слот</b><br><code>planned_post</code></td>
+        <td><code>scheduled_date</code>, <code>platform</code>, <code>launch_stage</code>, <code>meaning</code>, <code>trigger_key</code>, <code>checkpoints[]</code>, <code>markup_origin</code>, <code>has_proof</code>, <code>is_last_day</code>, <code>is_pinned</code>, <code>version</code></td>
+        <td>Одна публикация: день + канал + рубрика. Живёт в общем контент-плане, но помечена запуском и в обычный план не подмешивается.</td>
+      </tr>
+      <tr>
+        <td><b>Идея банка</b><br><code>knowledge_item</code></td>
+        <td>+ <code>launch_meaning</code>, <code>launch_checkpoints[]</code>, <code>launch_triggers[]</code>, <code>markup_origin</code>, <code>content_format</code></td>
+        <td>Существующий банк тезисов, обогащённый разметкой прогрева.</td>
+      </tr>
+      <tr>
+        <td><b>Отчёт</b><br><code>report</code></td>
+        <td>вычисляемый, не хранится</td>
+        <td>Находки проверок + счётчики покрытия. Пересчитывается на каждый запрос.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Три поля, которые легко потерять и дорого восстанавливать</h3>
+  <ul>
+    <li><code>markup_origin</code> — <code>rule</code> · <code>llm</code> · <code>human</code>. В покрытие засчитывается <b>только</b> <code>human</code>. Причина в разделе 07.</li>
+    <li><code>is_pinned</code> — слот закреплён руками и переживает пересборку плана. Без этого перегенерация затирает неделю работы, а откатить нечем.</li>
+    <li><code>version</code> — оптимистичная блокировка. Разметку правят из нескольких вкладок; без версии последний победивший молча стирает чужое.</li>
+  </ul>
+</section>
+
+<section id="stages">
+  <div class="sec-head"><span class="sec-num">02</span><h2>Семь этапов</h2></div>
+  <p class="lede">Ось запуска. Этап 1 идёт фоном и дней на оси не занимает. Этапы 2–6 — из источника. Этап 7 — наш.</p>
+
+  <div class="scroll">
+    <div class="axis">
+      <div style="background:var(--s2); flex:21">2 · мягкий · 21</div>
+      <div style="background:var(--s3); flex:1"></div>
+      <div style="background:var(--s4); flex:10">4 · активный · 10</div>
+      <div style="background:var(--s5); flex:6">5 · ключ · 6</div>
+      <div style="background:var(--s6); flex:1"></div>
+      <div style="background:var(--s7); flex:7">7 · продажи · 7</div>
+    </div>
+    <div class="axis-legend"><span>старт · −46 дней</span><span>открытие продаж · день 0</span><span>+7</span></div>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>№</th><th>Этап</th><th class="num">мин</th><th class="num">дефолт</th><th class="num">макс</th><th>Задача этапа</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><span class="dot" style="background:var(--s1)"></span>Регулярный контент</td><td class="num">—</td><td class="num">фон</td><td class="num">—</td><td>База, на которой стоят все запуски. Идёт всегда, до и во время.</td></tr>
+      <tr><td>2</td><td><span class="dot" style="background:var(--s2)"></span>Мягкий прогрев</td><td class="num">7</td><td class="num">21</td><td class="num">45</td><td>Вкидываем основные смыслы на низкой частоте, поднимаем интерес к теме.</td></tr>
+      <tr><td>3</td><td><span class="dot" style="background:var(--s3)"></span>Вброс идеи</td><td class="num">1</td><td class="num">1</td><td class="num">2</td><td>Вскрываем карты и собираем реакцию на саму идею продукта.</td></tr>
+      <tr><td>4</td><td><span class="dot" style="background:var(--s4)"></span>Активный прогрев</td><td class="num">7</td><td class="num">10</td><td class="num">15</td><td>Максимальная интенсивность, выкладываем козыри.</td></tr>
+      <tr><td>5</td><td><span class="dot" style="background:var(--s5)"></span>Прогрев к ключевому шагу</td><td class="num">4</td><td class="num">6</td><td class="num">10</td><td>Гоним на вебинар или бесплатник, собираем регистрации.</td></tr>
+      <tr><td>6</td><td><span class="dot" style="background:var(--s6)"></span>Ажиотаж</td><td class="num">0</td><td class="num">1</td><td class="num">2</td><td>Показываем, сколько людей хотят и как мало мест.</td></tr>
+      <tr><td>7</td><td><span class="dot" style="background:var(--s7)"></span>Окно продаж <span class="tag tag-ours">наше</span></td><td class="num">1</td><td class="num">7</td><td class="num">21</td><td>Продажа каждый день, снятие возражений, дожим последнего дня.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout ours">
+    <h4>Почему ось не заканчивается открытием продаж</h4>
+    <p>В уроках семь этапов упираются в дату открытия, а длина окна продаж не названа вообще. При этом в разобранном там же кейсе на 75 млн после открытия добрали 25 млн — треть запуска. Оставить окно продаж без плана значит выбросить треть выручки. Поэтому этап 7 существует, а последний день окна получает свой набор рубрик.</p>
+  </div>
+
+  <div class="callout gap">
+    <h4>Длительности — компромисс, а не цитата</h4>
+    <p>Активный прогрев в уроках назван трижды по-разному: «последняя неделя или последние 10 дней», в резюме того же урока «10–15 дней», в примере автора фактически 11. Мы фиксируем диапазон 7–15 с дефолтом 10. Пользователь может править <code>durations</code> вручную.</p>
+  </div>
+</section>
+
+<section id="calendar">
+  <div class="sec-head"><span class="sec-num">03</span><h2>Разворот календаря</h2></div>
+  <p class="lede">Алгоритм один и детерминированный: от даты продаж назад. Никакой модели здесь нет и быть не должно — план обязан быть воспроизводимым.</p>
+
+  <h3>Порядок</h3>
+  <ol>
+    <li>Проверить даты: <code>sales_close ≥ sales_open</code>, <code>key_event_date ≤ sales_open</code>. Иначе — ошибка с объяснением, а не молчаливая правка.</li>
+    <li>Этап 7 разворачивается вперёд от <code>sales_open</code> до <code>sales_close</code> (или на дефолтные 7 дней).</li>
+    <li>Этапы 6 → 2 разворачиваются назад от <code>sales_open</code>, каждый берёт свою длительность.</li>
+    <li>Если задано <code>key_event_date</code>, этап 5 притягивается к нему: ключевой шаг — это событие, а не просто отрезок.</li>
+    <li>Ни один день не может оказаться раньше сегодняшнего. Всё, что не помещается, — сжимается.</li>
+  </ol>
+
+  <h3>Сжатие при нехватке дней</h3>
+  <p>Когда до продаж меньше, чем требует сумма минимумов, этапы жертвуются в фиксированном порядке:</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="num">Очередь</th><th>Этап</th><th>Почему именно он</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>2 · Мягкий прогрев</td><td>Самый длинный и наименее критичный: его задача — фон.</td></tr>
+      <tr><td class="num">2</td><td>3 · Вброс идеи</td><td>Один день, схлопывается в активный прогрев без потери смысла.</td></tr>
+      <tr><td class="num">3</td><td>4 · Активный прогрев</td><td>Режется до минимума, но не исчезает.</td></tr>
+      <tr><td class="num">4</td><td>5 · Ключевой шаг</td><td>Режется последним из режущихся: регистрации собираются здесь.</td></tr>
+      <tr><td class="num">—</td><td>6 · Ажиотаж и 7 · Окно продаж</td><td><b>Не режутся никогда.</b> Без них запуска нет.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Всё, что сжато или выброшено, возвращается наверх списком: <code>compressed[]</code> и <code>dropped[]</code>. Молча урезанный план — это план, которому нельзя доверять.</p>
+
+  <h3>Каденция: сколько единиц в день</h3>
+  <p>Блогу на пятьсот подписчиков сорок единиц контента не нужны — он на них выгорит и не дойдёт до продаж. Поэтому интенсивность выбирается при создании запуска. Числа — дни недели, где 0 — понедельник.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Интенсивность</th><th>Сторис</th><th>Рилс</th><th>Telegram</th><th>Кому</th></tr></thead>
+    <tbody>
+      <tr><td><b>Лёгкая</b></td><td><code>пн · ср · пт</code></td><td><code>ср</code></td><td><code>пт</code></td><td>до ~2 тыс. подписчиков, первый запуск</td></tr>
+      <tr><td><b>Обычная</b></td><td><code>ежедневно</code></td><td><code>пн · ср · пт</code>, с этапа 4 — <code>пн · вт · чт · пт</code></td><td><code>вт · пт</code></td><td>дефолт</td></tr>
+      <tr><td><b>Плотная</b></td><td><code>ежедневно</code></td><td><code>пн — пт</code></td><td><code>пн · ср · пт</code></td><td>прогретая аудитория, не первый поток</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout gap">
+    <p><b>Дыра:</b> в источнике каденция не формализована вообще — есть только «в активном прогреве публикуемся максимально часто». Эти три профиля целиком наши и не проверены на данных. Их стоит замерить на первых запусках и пересобрать.</p>
+  </div>
+</section>
+
+<section id="meanings">
+  <div class="sec-head"><span class="sec-num">04</span><h2>Двенадцать рубрик</h2></div>
+  <p class="lede">Рубрика отвечает на вопрос «что я снимаю сегодня». У каждой — свой вопрос покупателя и свой ведущий рычаг.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="num">№</th><th>Рубрика</th><th><code>key</code></th><th class="num">вопрос</th><th>Ведущий рычаг</th><th>Форматы</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>Фоновый контент</td><td><code>background</code></td><td class="num">1</td><td>Релевантность</td><td>любой</td></tr>
+      <tr><td class="num">2</td><td>Стиль жизни</td><td><code>lifestyle</code></td><td class="num">1</td><td>Симпатия</td><td>сторис, рилс</td></tr>
+      <tr><td class="num">3</td><td>Продажа темы</td><td><code>topic</code></td><td class="num">1</td><td>Жизнь мечты</td><td>рилс, пост</td></tr>
+      <tr><td class="num">4</td><td>Экспертиза и авторитет</td><td><code>expertise</code></td><td class="num">2</td><td>Экспертность</td><td>рилс, пост</td></tr>
+      <tr><td class="num">5</td><td>Инфоповоды</td><td><code>newsjack</code></td><td class="num">1</td><td>События</td><td>сторис, рилс</td></tr>
+      <tr><td class="num">6</td><td>Клиенты и проекты</td><td><code>clients</code></td><td class="num">2</td><td>Авторитет</td><td>сторис, пост</td></tr>
+      <tr><td class="num">7</td><td>Ученики и комьюнити</td><td><code>students</code></td><td class="num">3</td><td>Социальные доказательства</td><td>сторис, рилс</td></tr>
+      <tr><td class="num">8</td><td>Продукт</td><td><code>product</code></td><td class="num">4</td><td>Ясность</td><td>сторис, пост</td></tr>
+      <tr><td class="num">9</td><td>Ажиотаж</td><td><code>hype</code></td><td class="num">4</td><td>Дефицит</td><td>сторис</td></tr>
+      <tr><td class="num">10</td><td>Бесплатник</td><td><code>freebie</code></td><td class="num">4</td><td>Благодарность</td><td>сторис, пост</td></tr>
+      <tr><td class="num">11</td><td>Продажи в блоге</td><td><code>sales</code></td><td class="num">4</td><td>Дефицит</td><td>сторис, пост</td></tr>
+      <tr><td class="num">12</td><td>Снятие возражений <span class="tag tag-ours">наше</span></td><td><code>objections</code></td><td class="num">3</td><td>Гарантия</td><td>сторис, пост</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout ours">
+    <p>Рубрика 12 добавлена нами. В окне продаж источнику работать нечем, кроме «продаж в блоге», а возражения снимаются кейсами и разбором — это отдельный смысл, а не продажа. Без неё седьмой этап вырождается в семь дней однотипного дожима.</p>
+  </div>
+
+  <h3>Квоты рубрик по этапам</h3>
+  <p>Сумма внутри этапа всегда равна единице. Планировщик раздаёт рубрики слотам пропорционально долям и всегда выдаёт ровно столько назначений, сколько слотов в этапе.</p>
+
+  <div class="scroll">
+  <table class="mix">
+    <thead><tr><th>Рубрика</th><th class="num">2 мягкий</th><th class="num">3 вброс</th><th class="num">4 активный</th><th class="num">5 ключ</th><th class="num">6 ажиотаж</th><th class="num">7 продажи</th><th class="num">посл. день</th></tr></thead>
+    <tbody>
+      <tr><td>Фоновый</td><td class="q num">25%</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td></tr>
+      <tr><td>Стиль жизни</td><td class="q num">25%</td><td class="q num z">—</td><td class="q num">10%</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td></tr>
+      <tr><td>Продажа темы</td><td class="q num">25%</td><td class="q num">40%</td><td class="q num">20%</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td></tr>
+      <tr><td>Экспертиза</td><td class="q num">20%</td><td class="q num z">—</td><td class="q num">25%</td><td class="q num">25%</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td></tr>
+      <tr><td>Инфоповоды</td><td class="q num">5%</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td></tr>
+      <tr><td>Клиенты</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num">5%</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td></tr>
+      <tr><td>Ученики</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num">25%</td><td class="q num">25%</td><td class="q num">30%</td><td class="q num">20%</td><td class="q num z">—</td></tr>
+      <tr><td>Продукт</td><td class="q num z">—</td><td class="q num">60%</td><td class="q num">15%</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td></tr>
+      <tr><td>Ажиотаж</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num">70%</td><td class="q num">15%</td><td class="q num">50%</td></tr>
+      <tr><td>Бесплатник</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num">50%</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td></tr>
+      <tr><td>Продажи</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num">40%</td><td class="q num">50%</td></tr>
+      <tr><td>Возражения <span class="tag tag-ours">наше</span></td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num z">—</td><td class="q num">25%</td><td class="q num z">—</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Колонки этапов 2–6 — из источника. Колонки «7 продажи» и «последний день» — наши.</p>
+</section>
+
+<section id="questions">
+  <div class="sec-head"><span class="sec-num">05</span><h2>Четыре вопроса и сорок смыслов</h2></div>
+  <p class="lede">Вторая ось, независимая от рубрик. Рубрика говорит «что снимаем сегодня», смысл — «во что человек должен поверить к моменту продаж». В источнике эти оси не связаны между собой вообще; мы связываем их через номер вопроса у рубрики.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="num">№</th><th>Вопрос в голове покупателя</th><th>Что он на самом деле значит</th><th class="num">смыслов</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td><b>Точно ли эта тема закроет мою потребность</b></td><td>Продаём тему, а не себя. Человек должен поверить в саму сферу.</td><td class="num">13</td></tr>
+      <tr><td class="num">2</td><td><b>Точно ли ты эксперт в этой теме</b></td><td>Право вести. Не «я хороший», а доказательства компетентности.</td><td class="num">10</td></tr>
+      <tr><td class="num">3</td><td><b>Точно ли получится у меня</b></td><td>Снятие возражений фактами и примерами с похожей стартовой точки.</td><td class="num">4</td></tr>
+      <tr><td class="num">4</td><td><b>Почему именно твой продукт</b></td><td>Отстройка от альтернатив: другого продукта, самообучения, откладывания.</td><td class="num">13</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Вопрос 1 · Тема закроет мою потребность</h3>
+  <p>Твои результаты · Твоя история · Ты был на месте зрителя · Лайфстайл: быт, покупки, окружение · Статистика и цифры · Увлечённость и кайф от темы · Как это вообще работает · Лёгкость входа · Безопасность · Отсутствие потолка · Выгоды сферы · Закрытие болей · Перспектива</p>
+
+  <h3>Вопрос 2 · Ты эксперт</h3>
+  <p>Достижения и регалии · Реальные проекты · Результаты учеников · Востребованность как спикера · Что говорят авторитетные люди · Мнение обычных людей о тебе · Экспертный контент · Уникальный опыт · Отстройка от вредного подхода · Понимание ошибок</p>
+
+  <h3>Вопрос 3 · Получится у меня</h3>
+  <p>Разбор страхов и возражений · Ученик с той же стартовой точки · Доказательство фактами, а не словами · <b>Мостик: свои провалы и трудности</b></p>
+
+  <div class="callout gap">
+    <h4>Третий вопрос — самый тонкий и самый недооценённый</h4>
+    <p>На него приходится четыре смысла из сорока, а именно он чаще всего и рушит запуск. «Мостик» означает: показать, с чего вы начинали и что у вас не получалось. Без него аудитория видит только вершину и решает, что у неё так не выйдет. Проверка на отсутствие мостика — единственная, которая по умолчанию помечена критичной вне зависимости от остальных.</p>
+  </div>
+
+  <h3>Вопрос 4 · Почему твой продукт</h3>
+  <p>Наполнение продукта · Путь, который пройдёт человек · Форматы поддержки · Команда проекта · Фишки и вау-эффект · Безопасно · Быстро · Легко · Комьюнити · Удовольствие от процесса · Интрига и эксклюзив · Частные критерии решения</p>
+</section>
+
+<section id="triggers">
+  <div class="sec-head"><span class="sec-num">06</span><h2>Восемнадцать рычагов</h2></div>
+  <p class="lede">Психологические рычаги. У одиннадцати есть штатный этап, семь работают сквозняком через весь прогрев.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Рычаг</th><th>Категория</th><th>Этап</th><th>Почему работает</th></tr></thead>
+    <tbody>
+      <tr><td>Релевантность</td><td>Понимание</td><td>1</td><td>Близкая стартовая точка вызывает «это про меня».</td></tr>
+      <tr><td>События</td><td>Срочность</td><td>1</td><td>Запуск должен быть событием, которое ждут.</td></tr>
+      <tr><td>Симпатия</td><td>Доверие</td><td>2</td><td>Покупают у того, кто похож и понятен.</td></tr>
+      <tr><td>Жизнь мечты</td><td>Желание</td><td>2</td><td>Покупают образ жизни, а не навык.</td></tr>
+      <tr><td>Экспертность</td><td>Доверие</td><td>2</td><td>Осведомлённость и опыт в конкретном вопросе.</td></tr>
+      <tr><td>Ясность</td><td>Понимание</td><td>3</td><td>В понятное легче поверить.</td></tr>
+      <tr><td>Социальные доказательства</td><td>Доверие</td><td>4</td><td>Люди ориентируются на выбор и результаты других.</td></tr>
+      <tr><td>Авторитет</td><td>Доверие</td><td>4</td><td>Признание со стороны отключает критическую оценку.</td></tr>
+      <tr><td>Принадлежность к сильной группе</td><td>Желание</td><td>4</td><td>Люди хотят быть частью сильной группы.</td></tr>
+      <tr><td>Благодарность</td><td>Вовлечение</td><td>5</td><td>За полученное бесплатно хочется отплатить.</td></tr>
+      <tr><td>Дефицит</td><td>Срочность</td><td>6</td><td>Ограниченность мест и времени повышает ценность.</td></tr>
+      <tr><td>Последовательность</td><td>Вовлечение</td><td>сквозной</td><td>После маленького шага легче сделать следующий.</td></tr>
+      <tr><td>Реалистичность</td><td>Доверие</td><td>сквозной</td><td>Неидеальная картинка вызывает больше доверия.</td></tr>
+      <tr><td>Лёгкость</td><td>Желание</td><td>сквозной</td><td>Простой и быстрый путь к результату.</td></tr>
+      <tr><td>Гарантия</td><td>Снятие риска</td><td>сквозной</td><td>Понятные условия безопасности и возврата.</td></tr>
+      <tr><td>Трансформация личности</td><td>Желание</td><td>сквозной</td><td>Меняется не только результат, но и сам человек.</td></tr>
+      <tr><td>Причастность</td><td>Вовлечение</td><td>сквозной</td><td>Свой вклад создаёт обязательство.</td></tr>
+      <tr><td>Общий враг</td><td>Вовлечение</td><td>сквозной</td><td>Общая проблема объединяет автора и аудиторию.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout ours">
+    <p>В источнике семь сквозных рычагов не привязаны ни к одному этапу — и потому выпадают из любой проверки: этап их не ждёт, значит и не спросит. Мы помечаем их отдельно и проверяем на всём прогреве целиком. Иначе гарантия, реалистичность и общий враг просто никогда не используются.</p>
+  </div>
+</section>
+
+<section id="markup">
+  <div class="sec-head"><span class="sec-num">07</span><h2>Разметка и её происхождение</h2></div>
+  <p class="lede">Самое важное правило всего модуля. Разметка бывает трёх сортов, и в зачёт идёт один.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Источник</th><th>Кто проставил</th><th>Идёт в покрытие</th><th>Где применяется</th></tr></thead>
+    <tbody>
+      <tr><td><code>rule</code></td><td>Правила по ключевым словам</td><td><b>Нет</b></td><td>Черновая разметка банка идей, первичное предположение о рубрике слота.</td></tr>
+      <tr><td><code>llm</code></td><td>Модель</td><td><b>Нет</b></td><td>Более умное предположение там, где правил не хватает.</td></tr>
+      <tr><td><code>human</code></td><td>Пользователь подтвердил</td><td><b>Да</b></td><td>Единственный сорт, который считается закрытым смыслом.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout">
+    <h4>Почему так, а не «поставим галочку автоматически»</h4>
+    <p>На разобранном банке правила по ключевым словам увели половину идей в «экспертизу», а «ажиотаж» остался с четырьмя записями. Весь дефицит плана оказался артефактом регулярки, а не реальной нехваткой материала. Уверенное «всё готово» на невыверенной разметке обходится дороже честного «не проверено»: человек идёт в запуск с дырой, о которой ему сказали, что её нет.</p>
+    <p>Отсюда два следствия в интерфейсе: находка, опирающаяся на неподтверждённую разметку, помечается «не проверено вручную», а счётчик показывает и заявленное, и подтверждённое отдельно.</p>
+  </div>
+
+  <h3>Подбор идеи под слот</h3>
+  <p>Правила соблюдаются буквально:</p>
+  <ul>
+    <li>Одна идея занимает не более одного слота — повтор в пределах запуска аудитория считывает как «ему нечего сказать».</li>
+    <li>Формат идеи должен ложиться в канал слота: выпуск на YouTube нельзя поставить в сторис.</li>
+    <li>Выше оценённые идут первыми; при равенстве — те, что ещё не использовались.</li>
+    <li>Если под рубрику ничего нет, слот остаётся пустым <b>с причиной</b>, а не затыкается чем попало. Формулировки причин: «в банке нет идей рубрики X», «идеи рубрики X есть, но не подходят под этот формат», «идеи рубрики X закончились — все уже стоят в плане». Молчаливый пустой слот — это день, в который человек не понимает, что снимать.</li>
+  </ul>
+</section>
+
+<section id="checks">
+  <div class="sec-head"><span class="sec-num">08</span><h2>Проверки</h2></div>
+  <p class="lede">Восемь ошибок из источника, переведённых в автоматические проверки. Проверка имеет смысл только тогда, когда есть что проверять: на пустом запуске она не показывается вообще.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Проверка</th><th>Что ловит</th><th>Строгость</th><th>Что показывает</th></tr></thead>
+    <tbody>
+      <tr><td><b>Незакрытые смыслы</b></td><td>Смысл из сорока не закрыт ни одним подтверждённым слотом.</td><td>критично, если под вопрос не закрыт ни один смысл</td><td>Список смыслов + дни, куда это ложится по рубрике.</td></tr>
+      <tr><td><b>Мостик</b></td><td>Ни разу не показаны свои провалы и трудности.</td><td>всегда критично</td><td>Дни этапов 2 и 4, где мостик уместен.</td></tr>
+      <tr><td><b>Порядок этапов</b></td><td>Ажиотаж раньше, чем раскрыты тема и эксперт.</td><td>критично</td><td>Какие слоты стоят не на своём месте.</td></tr>
+      <tr><td><b>Неиспользованные рычаги</b></td><td>Рычаг не задействован ни разу. Этапные и сквозные считаются раздельно.</td><td>важно</td><td>Список рычагов и подходящие этапы.</td></tr>
+      <tr><td><b>Заявлено, но не показано</b></td><td>Смысл объявлен словами, без события или пруфа (<code>has_proof</code>).</td><td>важно</td><td>Слоты без доказательства.</td></tr>
+      <tr><td><b>Дефицит банка</b></td><td>Под рубрику не хватает материала. Отличает «нет в банке» от «есть, но не поставлено».</td><td>важно</td><td>Сколько не хватает и по какой рубрике.</td></tr>
+      <tr><td><b>Повтор идеи</b></td><td>Одна идея стоит в двух слотах.</td><td>важно</td><td>Обе даты.</td></tr>
+      <tr><td><b>Готовность продукта</b></td><td>Не отмечено: программа, оффер и цена, приём оплаты, выдача доступов, поддержка.</td><td>критично</td><td>Что именно не отмечено.</td></tr>
+      <tr><td><b>Незакрытая сюжетная линия</b> <span class="tag tag-gap">не построено</span></td><td>Линия анонсирована и не закрыта до конца продаж.</td><td>критично</td><td>Дата анонса и сколько дней висит.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Как формулируется находка</h3>
+  <p>Процент покрытия человеку ничего не говорит. Находка обязана содержать четыре вещи:</p>
+  <ol>
+    <li><b>Что не так</b> — одной фразой, без методологического жаргона.</li>
+    <li><b>Чем это грозит</b> — на языке последствий, а не терминов. «Аудитория видит только вершину и решает, что у неё так не выйдет».</li>
+    <li><b>Где чинится</b> — конкретные дни плана, куда это ложится по рубрике.</li>
+    <li><b>На чём основано</b> — подтверждённая разметка или предположение.</li>
+  </ol>
+</section>
+
+<section id="pipeline">
+  <div class="sec-head"><span class="sec-num">09</span><h2>Пайплайн производства</h2></div>
+  <p class="lede">То, ради чего написан документ. Реальный запуск начинается не с календаря и не заканчивается его сборкой. Десять фаз, из них автоматизированы три.</p>
+
+  <div class="phase">
+    <div class="phase-n">00</div>
+    <div>
+      <h3>Рамка</h3>
+      <p>Что продаём, кому, за сколько. Дата открытия и закрытия продаж. Есть ли ключевое событие — вебинар, бесплатник, эфир. Какой это поток по счёту. Размер и прогретость аудитории — отсюда интенсивность.</p>
+      <div class="phase-grid">
+        <div class="pg-item"><h5>человек</h5><p>Вводит одну обязательную дату и отвечает на четыре вопроса мастера.</p></div>
+        <div class="pg-item"><h5>система</h5><p>Считает runway, предлагает интенсивность, сразу показывает форму будущего плана.</p></div>
+        <div class="pg-item"><h5>выход</h5><p>Запуск в статусе черновика.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-n">01</div>
+    <div>
+      <h3>Инвентаризация фактуры <span class="tag tag-gap">не построено</span></h3>
+      <p>Ключевая фаза, которой не было в первой сборке. Не «идеи для постов», а ответ на вопрос: чем вообще есть что доказывать. Сорок смыслов раскладываются на экран, и по каждому человек отвечает: есть у меня это или нет.</p>
+      <p>Результаты, история, провалы, регалии, кейсы клиентов, отзывы учеников, скрины, цифры, наполнение продукта, состав команды. Это не контент — это сырьё.</p>
+      <div class="phase-grid">
+        <div class="pg-item"><h5>человек</h5><p>Проходит по четырём вопросам и отмечает, что у него есть, прикладывая пруф или ссылку.</p></div>
+        <div class="pg-item"><h5>система</h5><p>Предзаполняет из банка идей и прошлых запусков, показывает карту покрытия по четырём вопросам.</p></div>
+        <div class="pg-item"><h5>выход</h5><p>Карта фактуры: что есть, чего нет.</p></div>
+      </div>
+      <div class="callout gap" style="margin-top:16px">
+        <p><b>Почему без этой фазы модуль не работает.</b> «Разметить банк» на банке тезисов блога даёт разметку блоговых тезисов — а запуску нужны отзывы учеников и разбор своих провалов, которых в банке нет и не было. Отсюда пустые слоты и красная проверка, на которую человек не может ничего ответить.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-n">02</div>
+    <div>
+      <h3>Добыча недостающего <span class="tag tag-gap">не построено</span></h3>
+      <p>Каждый незакрытый смысл превращается в конкретную задачу с дедлайном, привязанным к этапу, где он понадобится. Не «добавьте экспертности», а «до 8 октября попросить у трёх учеников видеоотзыв с описанием стартовой точки».</p>
+      <div class="phase-grid">
+        <div class="pg-item"><h5>человек</h5><p>Забирает задачи в работу, отмечает выполненные.</p></div>
+        <div class="pg-item"><h5>система</h5><p>Генерирует формулировку задачи по смыслу, считает дедлайн от даты этапа.</p></div>
+        <div class="pg-item"><h5>выход</h5><p>Список задач на добычу с датами.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-n">03</div>
+    <div>
+      <h3>Сюжетные линии</h3>
+      <p>Три-пять линий, каждая с анонсом и закрытием: «покажу, сколько на самом деле стоил первый поток» — анонс 28 сентября, раскрытие 12 октября. Линии держат внимание через недели, которые иначе распадаются на отдельные посты.</p>
+      <div class="phase-grid">
+        <div class="pg-item"><h5>человек</h5><p>Формулирует линию, назначает даты анонса и закрытия.</p></div>
+        <div class="pg-item"><h5>система</h5><p>Следит, чтобы каждая линия закрылась до конца продаж; неоплаченный анонс — критичная находка.</p></div>
+        <div class="pg-item"><h5>выход</h5><p>Линии, привязанные к дням плана.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-n">04</div>
+    <div>
+      <h3>Разворот календаря <span class="tag tag-src">автоматизировано</span></h3>
+      <p>Алгоритм из раздела 03. Этапы, дни, каналы, рубрики по квотам. Закреплённые и опубликованные слоты переживают пересборку.</p>
+      <div class="phase-grid">
+        <div class="pg-item"><h5>человек</h5><p>Нажимает одну кнопку, при необходимости правит длительности этапов.</p></div>
+        <div class="pg-item"><h5>система</h5><p>Разворачивает план, честно сообщает, что сжато и что выброшено.</p></div>
+        <div class="pg-item"><h5>выход</h5><p>Слоты в календаре, сгруппированные по этапам.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-n">05</div>
+    <div>
+      <h3>Наполнение слотов <span class="tag tag-src">автоматизировано</span></h3>
+      <p>В слот подставляется единица фактуры или идея из банка. Пустой слот всегда с причиной — и причина ведёт в задачу на добычу из фазы 02.</p>
+      <div class="phase-grid">
+        <div class="pg-item"><h5>человек</h5><p>Правит подбор, закрепляет то, что менять нельзя, подтверждает разметку.</p></div>
+        <div class="pg-item"><h5>система</h5><p>Подбирает по рубрике и формату, объясняет каждый пропуск.</p></div>
+        <div class="pg-item"><h5>выход</h5><p>План, по которому можно снимать.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-n">06</div>
+    <div>
+      <h3>Проверка и дожим <span class="tag tag-src">автоматизировано</span></h3>
+      <p>Восемь проверок из раздела 08. Работает на подтверждённой разметке; всё остальное помечено как предположение.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-n">07</div>
+    <div>
+      <h3>Производство контента <span class="tag tag-gap">не построено</span></h3>
+      <p>Из слота — сценарий рилса, текст поста, раскадровка сторис. Слот уже знает рубрику, вопрос, рычаг и смысл, который должен закрыть, — это и есть готовое задание на текст. Здесь модуль стыкуется с существующим канвасом ContentOS.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-n">08</div>
+    <div>
+      <h3>Ведение запуска <span class="tag tag-gap">не построено</span></h3>
+      <p>Ежедневный режим, а не проектный. Что снимаем сегодня, что вчера не вышло, какая была реакция, сколько собрано регистраций против цели. Режим спасения: если к этапу 5 регистраций вдвое меньше плана, план перестраивается в сторону бесплатника и социальных доказательств.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-n">09</div>
+    <div>
+      <h3>Разбор после <span class="tag tag-gap">не построено</span></h3>
+      <p>Что сработало, что нет, какие рубрики дали отклик, какая фактура зашла. Всё это уходит в банк и в дефолты следующего потока — <code>launch_number</code> растёт, и второй запуск начинается не с нуля.</p>
+    </div>
+  </div>
+</section>
+
+<section id="screens">
+  <div class="sec-head"><span class="sec-num">10</span><h2>Экраны</h2></div>
+  <p class="lede">Девять экранов. У каждого — один вопрос, на который он отвечает. Если экран отвечает на два, его надо делить.</p>
+
+  <div class="screen">
+    <div class="screen-top"><h3>Запуски</h3><span class="screen-q">какой запуск требует внимания сегодня</span></div>
+    <p>Список. В каждой строке: название, сколько дней до продаж, стадия пайплайна, одна цифра-тревога — незакрытых критичных находок.</p>
+    <dl>
+      <dt>Пусто</dt><dd>Объяснить, что нужна одна дата, и показать форму будущего плана.</dd>
+      <dt>Правило</dt><dd>Удаления нет, только архив. Запуск — это история, из которой учатся.</dd>
+    </dl>
+  </div>
+
+  <div class="screen">
+    <div class="screen-top"><h3>Мастер создания</h3><span class="screen-q">какая у запуска рамка</span></div>
+    <p>Три шага, не форма из пятнадцати полей. Шаг 1 — что и когда продаём. Шаг 2 — ключевое событие, если есть. Шаг 3 — аудитория и интенсивность.</p>
+    <dl>
+      <dt>Всегда видно</dt><dd>Ось будущего плана, которая перестраивается прямо во время ввода дат.</dd>
+      <dt>Ошибка дат</dt><dd>Сказать, что не сходится, и предложить ближайшую корректную дату.</dd>
+    </dl>
+  </div>
+
+  <div class="screen">
+    <div class="screen-top"><h3>Фактура</h3><span class="screen-q">чем мне вообще есть что доказывать</span></div>
+    <p>Четыре колонки по вопросам покупателя, в каждой — смыслы карточками. Три состояния: есть с пруфом · заявлено без пруфа · нет. Сверху — покрытие по каждому вопросу полосой.</p>
+    <dl>
+      <dt>Действие</dt><dd>С карточки без фактуры — «поставить задачу» с автоматическим дедлайном.</dd>
+      <dt>Тон</dt><dd>Это инвентаризация, а не экзамен. «Нет» — нормальный ответ, из него получается план работ.</dd>
+    </dl>
+  </div>
+
+  <div class="screen">
+    <div class="screen-top"><h3>Сюжетные линии</h3><span class="screen-q">что я обещал и когда закрою</span></div>
+    <p>Горизонтальные полосы на оси запуска: начало — анонс, конец — раскрытие. Незакрытая линия визуально обрывается, а не просто помечается.</p>
+  </div>
+
+  <div class="screen">
+    <div class="screen-top"><h3>План</h3><span class="screen-q">что я снимаю и когда</span></div>
+    <p>Ось этапов сверху, под ней календарь, сгруппированный по этапам, внутри — по дням. Фильтры: все · без идеи · без пруфа · не подтверждено. Строка слота: канал, рубрика, текст идеи, значок пропуска.</p>
+    <dl>
+      <dt>Правило</dt><dd>Пустой слот показывает причину прямо в строке, а не по наведению.</dd>
+      <dt>Массовое</dt><dd>Подтверждение разметки — этапом целиком, не по одной строке из ста.</dd>
+    </dl>
+  </div>
+
+  <div class="screen">
+    <div class="screen-top"><h3>Слот</h3><span class="screen-q">что именно снимать в этот день</span></div>
+    <p>Боковая панель. Рубрика и почему она здесь. Вопрос покупателя, который закрывается. Рычаг. Смыслы, которые слот берёт на себя. Приложенная фактура. Кнопка производства текста.</p>
+    <dl>
+      <dt>Конфликт</dt><dd>При расхождении версий — показать чужую правку и дать выбрать, а не перетереть молча.</dd>
+    </dl>
+  </div>
+
+  <div class="screen">
+    <div class="screen-top"><h3>Проверка</h3><span class="screen-q">что способно стоить мне продаж</span></div>
+    <p>Сначала продвижение: смыслы, рычаги, слоты с фактурой. Затем находки — критичные развёрнуто, остальные свёрнуто. Каждая находка ведёт в конкретные дни плана.</p>
+    <dl>
+      <dt>Пустой запуск</dt><dd>Экран не показывается вообще. Отчитывать за работу, которая не начиналась, — худшее, что может сделать инструмент.</dd>
+    </dl>
+  </div>
+
+  <div class="screen">
+    <div class="screen-top"><h3>Сегодня</h3><span class="screen-q">что делать прямо сейчас</span></div>
+    <p>Рабочий экран на время запуска. Слоты на сегодня и завтра, вчерашние невыпущенные, ближайший дедлайн по фактуре, регистрации против цели.</p>
+  </div>
+
+  <div class="screen">
+    <div class="screen-top"><h3>Разбор</h3><span class="screen-q">что забрать в следующий поток</span></div>
+    <p>Открывается после закрытия продаж. Отклик по рубрикам и этапам, что было выпущено против плана, какая фактура сработала. Всё помеченное уходит в дефолты следующего запуска.</p>
+  </div>
+</section>
+
+<section id="open">
+  <div class="sec-head"><span class="sec-num">11</span><h2>Нерешённое</h2></div>
+  <p class="lede">Честный список того, на что у методологии нет ответа, а у нас — данных.</p>
+
+  <ol>
+    <li><b>Каденция не обоснована.</b> Три профиля интенсивности придуманы нами. Нужен замер: сколько единиц в день выдерживает блог до падения досмотров.</li>
+    <li><b>Длина окна продаж.</b> Дефолт семь дней взят из кейса на 75 млн, где окно было именно таким. Один кейс — не выборка.</li>
+    <li><b>Вес смыслов.</b> Все сорок считаются равнозначными, хотя очевидно, что «мостик» и «фишки продукта» не равны. Веса нужны, но брать их неоткуда.</li>
+    <li><b>Второй и последующие потоки.</b> В источнике всё написано про первый запуск. Что меняется на третьем потоке для той же аудитории — не описано нигде.</li>
+    <li><b>Ниша.</b> Методология выведена на инфопродуктах в мягких нишах. Переносимость на B2B, услуги и физические товары не проверена.</li>
+    <li><b>Цена ошибки этапов.</b> Порядок этапов проверяется как жёсткое правило, хотя в источнике он описан как рекомендация. Возможно, проверка слишком строгая.</li>
+  </ol>
+
+  <div class="callout">
+    <h4>Что считать успехом модуля</h4>
+    <p>Не «пользователь собрал план». План собирается одной кнопкой и ничего не стоит. Успех — когда человек за неделю до продаж <b>меняет</b> план из-за находки проверки: доснимает мостик, добирает отзывы, переставляет ажиотаж. Это единственное измеримое доказательство, что инструмент сделал работу, которую человек сам не сделал бы.</p>
+  </div>
+</section>
+
+</div>

@@ -226,6 +226,7 @@ async def build_launch_report(db: AsyncSession, launch: Launch) -> Report:
         [_slot_view(p) for p in posts],
         bank_by_meaning=histogram,
         readiness=readiness,
+        bank_total=len(bank),
     )
 
 

@@ -162,6 +162,8 @@ class ReportOut(BaseModel):
     triggers_total: int
     slots_total: int
     slots_with_idea: int
+    bank_total: int
+    bank_marked: int
 
 
 # ---------------------------------------------------------------------------

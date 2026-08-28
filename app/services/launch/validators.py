@@ -97,6 +97,10 @@ class Report:
     triggers_total: int = 0
     slots_total: int = 0
     slots_with_idea: int = 0
+    #: Идей в банке всего / из них с проставленной рубрикой.
+    #: Нужно интерфейсу: без этого первый шаг сценария нечем показать.
+    bank_total: int = 0
+    bank_marked: int = 0
 
     @property
     def ready(self) -> bool:
@@ -474,6 +478,7 @@ def build_report(
     *,
     bank_by_meaning: dict[str, int] | None = None,
     readiness: dict[str, bool] | None = None,
+    bank_total: int = 0,
 ) -> Report:
     """Прогнать все проверки и собрать отчёт."""
     findings: list[Finding] = []
@@ -504,4 +509,6 @@ def build_report(
         triggers_total=len(TRIGGERS),
         slots_total=len(slots),
         slots_with_idea=sum(1 for s in slots if s.idea_id),
+        bank_total=bank_total,
+        bank_marked=sum((bank_by_meaning or {}).values()),
     )
