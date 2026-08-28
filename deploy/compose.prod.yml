@@ -23,6 +23,10 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
+      args:
+        # С этого сервера CDN Debian недоступен — сборка падает на apt.
+        # Зеркало задаётся здесь, образ в остальном не меняется.
+        APT_MIRROR: ${APT_MIRROR:-mirror.yandex.ru/debian}
     env_file:
       - /etc/contentos/secrets.env
     environment:
@@ -50,6 +54,10 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
+      args:
+        # С этого сервера CDN Debian недоступен — сборка падает на apt.
+        # Зеркало задаётся здесь, образ в остальном не меняется.
+        APT_MIRROR: ${APT_MIRROR:-mirror.yandex.ru/debian}
     env_file:
       - /etc/contentos/secrets.env
     environment:

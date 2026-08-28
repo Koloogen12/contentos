@@ -15,7 +15,23 @@ ENV PYTHONUNBUFFERED=1 \
     # (which would otherwise mask /root if a host-mounted home dir is used).
     PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Зеркало apt. Пусто — берём deb.debian.org, как обычно.
+#
+# Прод-сервер (Selectel, Москва) не достаёт CDN Debian: DNS резолвится,
+# соединение висит и apt-get update отдаёт Err по всем спискам, после чего
+# install падает с «Unable to locate package». При этом обычные зеркала с
+# того же сервера открываются. Поэтому источник вынесен в аргумент сборки:
+# локально и в CI ничего не меняется, а деплой передаёт рабочее зеркало.
+ARG APT_MIRROR=""
+
+RUN if [ -n "$APT_MIRROR" ]; then \
+        rm -f /etc/apt/sources.list.d/*; \
+        { \
+          echo "deb http://$APT_MIRROR bookworm main"; \
+          echo "deb http://$APT_MIRROR bookworm-updates main"; \
+        } > /etc/apt/sources.list; \
+    fi \
+    && apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         curl \
         ca-certificates \
