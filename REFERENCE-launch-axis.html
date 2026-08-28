@@ -1,0 +1,382 @@
+<title>Ось запуска — эталон</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap">
+
+<style>
+:root {
+  --paper:#F1F0EE; --card:#FFFFFF; --ink:#171717; --ink2:#6B6B66; --ink3:#9A9A93;
+  --line:rgba(23,23,23,.09); --line2:rgba(23,23,23,.16);
+  --or:#F2601A; --or-soft:#FDEDE4;
+  --ok:#2F8F62; --ok-soft:#E4F1EA;
+  --warn:#C2410C;
+  --miss:#D9D7D2;
+  --r:16px;
+  --s2:#C7CBD1; --s3:#A9B2C4; --s4:#8E9AB8; --s5:#9B8FBE; --s6:#E0A05B; --s7:#F2601A;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0E0F0E; --card:#171917; --ink:#EDEDE9; --ink2:#9EA39C; --ink3:#6E736C;
+  --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.18);
+  --or:#FF7A3D; --or-soft:#2A1A12; --ok:#5BBE8C; --ok-soft:#15241C; --warn:#F08A5D; --miss:#33362F;
+  --s2:#4A4F57; --s3:#5A6373; --s4:#6E7A96; --s5:#7E72A0; --s6:#C0864A; --s7:#FF7A3D;
+}}
+:root[data-theme="dark"]{
+  --paper:#0E0F0E; --card:#171917; --ink:#EDEDE9; --ink2:#9EA39C; --ink3:#6E736C;
+  --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.18);
+  --or:#FF7A3D; --or-soft:#2A1A12; --ok:#5BBE8C; --ok-soft:#15241C; --warn:#F08A5D; --miss:#33362F;
+  --s2:#4A4F57; --s3:#5A6373; --s4:#6E7A96; --s5:#7E72A0; --s6:#C0864A; --s7:#FF7A3D;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:400 15px/1.55 Onest,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased}
+.page{max-width:1000px;margin:0 auto;padding:48px 24px 120px}
+
+h1{font-size:30px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px}
+.sub{color:var(--ink2);margin:0 0 40px;max-width:62ch}
+h2{font-size:13px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);margin:48px 0 14px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px 24px}
+.note{margin:14px 0 0;font-size:14px;color:var(--ink2);max-width:70ch}
+.note b{color:var(--ink);font-weight:600}
+
+/* ── шапка компонента ── */
+.hd{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 20px;margin-bottom:20px}
+.hd .lead{font-size:22px;font-weight:600;letter-spacing:-.015em}
+.hd .lead em{font-style:normal;color:var(--or)}
+.facts{display:flex;gap:18px;margin-left:auto;flex-wrap:wrap}
+.fact{font-size:13px;color:var(--ink2);white-space:nowrap}
+.fact b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.fact.bad b{color:var(--warn)}
+
+/* ── ось ── */
+.axis{position:relative;padding-top:26px}
+.lane-lbl{position:absolute;left:0;transform:translateX(-100%);padding-right:12px;
+  font-size:11px;color:var(--ink3);white-space:nowrap;line-height:1}
+.axis-inner{position:relative}
+
+.stages{display:flex;gap:3px;height:30px}
+.stg{position:relative;border-radius:5px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;color:#fff;overflow:hidden;cursor:pointer;
+  transition:filter .12s}
+.stg:hover{filter:brightness(1.08)}
+.stg span{position:relative;z-index:1;padding:0 4px;white-space:nowrap;
+  text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.stg.past{opacity:.42}
+
+/* плотность публикаций — диагональная штриховка поверх заливки */
+.dens{position:absolute;inset:0;
+  background-image:repeating-linear-gradient(-45deg,rgba(255,255,255,.28) 0 1px,transparent 1px 5px)}
+
+/* ── дорожка наполнения: столбик на день ── */
+.days{display:flex;gap:2px;margin-top:6px;height:38px;align-items:flex-end}
+.day{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;min-width:0}
+/* Заполненное — спокойный фон. Пустое — то, ради чего дорожка существует. */
+.u{height:10px;border-radius:2px;background:var(--ink);opacity:.20}
+.u.proof{background:var(--ok);opacity:.55}
+.u.empty{background:var(--or-soft);border:1.5px solid var(--warn);opacity:1}
+.day.future .u{opacity:.13}
+.day.future .u.proof{opacity:.30}
+.day.future .u.empty{opacity:.85}
+
+/* ── дорожка сюжетных линий ── */
+.lines{margin-top:12px;display:flex;flex-direction:column;gap:5px}
+.line{position:relative;height:20px}
+.br{position:absolute;height:20px;border-radius:10px;display:flex;align-items:center;
+  padding:0 9px;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;
+  border:1px solid var(--line2);background:var(--card);color:var(--ink2)}
+.br.open{border-style:dashed;border-color:var(--warn);color:var(--warn)}
+.br .cap{width:5px;height:5px;border-radius:50%;background:currentColor;margin-right:7px;flex:none}
+
+/* ── события и сегодня ── */
+.marks{position:relative;height:52px;margin-top:8px;border-top:1px solid var(--line)}
+.mk{position:absolute;top:0;font-size:11px;color:var(--ink2);white-space:nowrap;
+  display:flex;flex-direction:column;align-items:center}
+.mk i{width:1px;background:var(--line2);margin-bottom:4px}
+.mk.big{color:var(--or);font-weight:600}
+.mk.big i{background:var(--or);width:2px}
+/* крайние метки прижимаются к краю оси, а не свисают за него */
+.mk.at-end{align-items:flex-end}
+.mk.at-end i{margin-right:0}
+.mk.at-start{align-items:flex-start}
+
+.today{position:absolute;top:-4px;bottom:0;width:2px;background:var(--or);z-index:3;border-radius:1px}
+.today::after{content:attr(data-l);position:absolute;top:-22px;left:50%;transform:translateX(-50%);
+  background:var(--or);color:#fff;font-size:10.5px;font-weight:600;padding:2.5px 7px;border-radius:5px;white-space:nowrap}
+
+.ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink3);margin-top:2px}
+
+/* ── дефицит вместо дублирующего списка ── */
+.gaps{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);
+  display:flex;flex-direction:column;gap:9px}
+.gap{display:flex;align-items:baseline;gap:11px;font-size:14px}
+.gap .w{width:7px;height:7px;border-radius:50%;flex:none;transform:translateY(-1px)}
+.gap .d{margin-left:auto;color:var(--ink3);font-size:12.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.gap .st{color:var(--ink2)}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);
+  font-size:12px;color:var(--ink3)}
+.legend span{display:flex;align-items:center;gap:7px}
+.sw{width:16px;height:6px;border-radius:2px;display:inline-block}
+
+.bad{color:var(--warn)}
+.mini{font-size:12.5px;color:var(--ink3);margin-top:10px}
+
+ul.why{margin:12px 0 0;padding-left:20px;font-size:14px;color:var(--ink2);max-width:70ch}
+ul.why li{margin-bottom:6px}
+ul.why b{color:var(--ink);font-weight:600}
+</style>
+
+<div class="page">
+
+<h1>Ось запуска — эталон</h1>
+<p class="sub">Три состояния одного компонента. Различаются не оформлением, а тем, на какой вопрос отвечают: до сборки — «что получится», в работе — «где дыры», во время запуска — «что сегодня». Данные взяты из вашего запуска: продажи 19–25 октября, вебинар 17 октября.</p>
+
+<h2>1 · До сборки плана — обещание</h2>
+<div class="card" id="c1"></div>
+<p class="note">Единственный случай, когда уместна нынешняя форма: плана ещё нет, показывать состояние нечего. Но и здесь ось <b>говорит про нагрузку, а не про дни</b>: штриховка плотнее там, где публикаций больше. Сразу видно, что ажиотаж — один день, но самый тяжёлый, а мягкий прогрев занимает половину оси и почти ничего не требует.</p>
+
+<h2>2 · План собран — карта дефицита</h2>
+<div class="card" id="c2"></div>
+<p class="note">Главное изменение: под этапами появляется <b>столбик на каждый день</b> — по чёрточке на публикацию. Заполненное намеренно приглушено, а пустое подсвечено: дорожка существует ради дыр, а не ради галочек. Дефицит перестаёт быть числом «7 из 9» в углу и становится формой, которую видно, не читая.</p>
+<ul class="why">
+  <li><b>Сюжетные линии</b> — отдельной дорожкой. Они пересекают этапы, и это единственная сущность, которую нельзя показать списком. Пунктирная линия с обрывом — анонс без закрытия.</li>
+  <li><b>Список этапов под осью заменён списком дефицита.</b> Даты и длительности дублировать незачем — они уже на оси. Внизу только то, чего не хватает, и в какие дни это чинится.</li>
+  <li><b>Каждый сегмент кликабелен</b> и фильтрует календарь. Сейчас ось — картинка, на которую нельзя нажать; отсюда ощущение, что она ни для чего.</li>
+</ul>
+
+<h2>3 · Запуск идёт — прибор</h2>
+<div class="card" id="c3"></div>
+<p class="note">Тот же компонент 5 октября. Появляется <b>«сегодня»</b> — главная метка любой оси обратного отсчёта. Прошедшее приглушено, будущее активно. Шапка меняет содержание: вместо «46 дней · 10 сен — 25 окт» — то, ради чего человек открыл экран: сколько осталось, сколько дней без фактуры, сколько критичных пропусков. Даты уезжают вниз, в подписи.</p>
+
+<h2>Что изменилось и почему</h2>
+<div class="card">
+<ul class="why" style="margin-top:0">
+  <li><b>Ширина = дни, насыщенность = давление.</b> Пропорции по дням честны, но без второго измерения самый широкий блок — самый ненагруженный. Штриховка возвращает вес туда, где он есть.</li>
+  <li><b>Убран дубль.</b> Полоса и список говорили одно и то же. Осталась полоса; список стал другим по содержанию — не расписание, а дефицит.</li>
+  <li><b>Состояние на самой оси.</b> Наполнение по дням — это то, чего в таблице не увидеть: провал в середине активного прогрева виден как разрыв, а не как строка «7 из 9».</li>
+  <li><b>Сюжетные линии добавлены.</b> Без них таймлайн не оправдывает своё место: всё остальное можно изложить двумя строчками текста.</li>
+  <li><b>«Сегодня» и события.</b> Вебинар, открытие продаж, последний день — это опоры, вокруг которых человек думает о запуске. На оси их не было вовсе.</li>
+  <li><b>Три состояния, а не одно.</b> Компонент один, но до сборки, в работе и во время запуска он отвечает на разные вопросы. Сейчас есть только первый режим, и он показывается всегда — в том числе когда бесполезен.</li>
+</ul>
+</div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// Модель. Дизайнеру: это весь вход компонента.
+// ─────────────────────────────────────────────────────────────
+const STAGES = [
+  {n:2, key:"soft",     title:"Мягкий",       start:"2026-09-10", end:"2026-09-30", load:1, color:"--s2"},
+  {n:3, key:"idea",     title:"Вброс",        start:"2026-10-01", end:"2026-10-01", load:2, color:"--s3"},
+  {n:4, key:"active",   title:"Активный",     start:"2026-10-02", end:"2026-10-11", load:3, color:"--s4"},
+  {n:5, key:"key_step", title:"Ключевой шаг", start:"2026-10-12", end:"2026-10-17", load:3, color:"--s5"},
+  {n:6, key:"hype",     title:"Ажиотаж",      start:"2026-10-18", end:"2026-10-18", load:4, color:"--s6"},
+  {n:7, key:"sales",    title:"Продажи",      start:"2026-10-19", end:"2026-10-25", load:4, color:"--s7"},
+];
+
+const EVENTS = [
+  {date:"2026-10-17", label:"вебинар",        big:false},
+  {date:"2026-10-19", label:"открытие продаж", big:true},
+];
+
+const STORY_LINES = [
+  {title:"Сколько стоил первый поток", from:"2026-09-18", to:"2026-10-06", closed:true},
+  {title:"Почему я закрыл прошлый набор", from:"2026-09-25", to:null, closed:false},
+];
+
+// Дефицит: что не закрыто и в какие дни чинится.
+const GAPS = [
+  {stage:4, title:"Мостик: свои провалы и трудности", note:"не показан ни разу", days:"2 · 5 · 8 окт", crit:true},
+  {stage:4, title:"Экспертиза и авторитет",            note:"в банке нет идей рубрики",  days:"4 · 9 окт",     crit:false},
+  {stage:7, title:"Снятие возражений",                 note:"нет фактуры под 3 слота",   days:"21 · 23 окт",   crit:false},
+];
+
+// ── даты ──
+const D = s => new Date(s + "T00:00:00");
+const DAY = 86400000;
+const days = (a,b) => Math.round((D(b)-D(a))/DAY) + 1;
+const MON = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
+const fmt = s => { const d = D(s); return d.getDate() + " " + MON[d.getMonth()]; };
+const plural = n => n%10===1 && n%100!==11 ? "день" : (n%10>=2 && n%10<=4 && (n%100<12||n%100>14) ? "дня" : "дней");
+
+const START = STAGES[0].start, END = STAGES[STAGES.length-1].end;
+const TOTAL = days(START, END);
+const pos = s => (Math.round((D(s)-D(START))/DAY) / TOTAL) * 100;   // левый край дня, %
+const span = (a,b) => (days(a,b) / TOTAL) * 100;
+
+// ── каденция: сколько единиц в день и какие ──
+// Обычная интенсивность: сторис ежедневно, рилс пн/ср/пт (с этапа 4 — пн/вт/чт/пт), telegram вт/пт.
+function unitsFor(dateStr, stageN){
+  const wd = (D(dateStr).getDay() + 6) % 7;            // 0 = понедельник
+  const out = ["stories"];
+  const reels = stageN >= 4 ? [0,1,3,4] : [0,2,4];
+  if (reels.includes(wd)) out.push("reels");
+  if ([1,4].includes(wd)) out.push("telegram");
+  return out;
+}
+
+// Дефицит в реальном запуске не рассыпан случайно — он идёт рубриками:
+// кончились идеи «экспертизы», нет фактуры под «возражения». Поэтому дыры
+// кучкуются, и форма на оси совпадает со списком дефицита под ней.
+const HOLES = [
+  {from:"2026-10-02", to:"2026-10-09", every:3},   // этап 4, экспертиза
+  {from:"2026-10-21", to:"2026-10-24", every:2},   // этап 7, возражения
+];
+function fillState(dateStr, i, unit){
+  const inHole = HOLES.some(h => dateStr >= h.from && dateStr <= h.to
+                                 && (D(dateStr).getDate() + i) % h.every === 0);
+  if (inHole) return "empty";
+  return (D(dateStr).getDate() + i) % 3 === 0 ? "proof" : "plain";
+}
+
+// ─────────────────────────────────────────────────────────────
+// Отрисовка
+// ─────────────────────────────────────────────────────────────
+function countSlots(){
+  let total = 0, empty = 0;
+  for (let i = 0; i < TOTAL; i++){
+    const ds = new Date(D(START).getTime() + i*DAY).toISOString().slice(0,10);
+    const st = STAGES.find(s => ds >= s.start && ds <= s.end) || STAGES[0];
+    unitsFor(ds, st.n).forEach((u, j) => {
+      total++;
+      if (fillState(ds, i+j, u) === "empty") empty++;
+    });
+  }
+  return {total, empty};
+}
+
+function renderAxis(host, opts){
+  const {mode, today} = opts;
+  const t = today ? D(today) : null;
+  const cnt = countSlots();
+
+  // шапка
+  let facts;
+  if (mode === "preview") {
+    facts = `<span class="fact"><b>${TOTAL}</b> ${plural(TOTAL)} до конца продаж</span>
+             <span class="fact">старт <b>${fmt(START)}</b></span>`;
+  } else if (mode === "plan") {
+    facts = `<span class="fact"><b>${cnt.total}</b> слотов</span>
+             <span class="fact bad"><b>${cnt.empty}</b> без фактуры</span>
+             <span class="fact bad"><b>${GAPS.filter(g => g.crit).length}</b> критичный пропуск</span>`;
+  } else {
+    const left = Math.round((D("2026-10-19") - t) / DAY);
+    facts = `<span class="fact"><b>${left}</b> ${plural(left)} до продаж</span>
+             <span class="fact bad"><b>${cnt.empty}</b> слотов без фактуры</span>
+             <span class="fact bad"><b>${STORY_LINES.filter(l => !l.closed).length}</b> линия не закрыта</span>`;
+  }
+
+  const lead = mode === "preview"
+    ? `Так будет выглядеть план`
+    : (mode === "plan" ? `План собран` : `Идёт <em>активный прогрев</em>`);
+
+  // этапы
+  const stagesHtml = STAGES.map(s => {
+    const past = t && D(s.end) < t;
+    const w = span(s.start, s.end);
+    const showLabel = w > 6;
+    return `<div class="stg${past ? " past" : ""}" style="flex:${days(s.start,s.end)};background:var(${s.color})"
+                 title="${s.title} · ${fmt(s.start)} — ${fmt(s.end)} · ${days(s.start,s.end)} ${plural(days(s.start,s.end))}">
+              ${s.load >= 3 ? '<div class="dens" style="opacity:' + (s.load === 4 ? 1 : .55) + '"></div>' : ""}
+              <span>${showLabel ? s.title : s.n}</span>
+            </div>`;
+  }).join("");
+
+  // дорожка наполнения по дням
+  let daysHtml = "";
+  if (mode !== "preview") {
+    const cells = [];
+    for (let i = 0; i < TOTAL; i++){
+      const ds = new Date(D(START).getTime() + i*DAY).toISOString().slice(0,10);
+      const st = STAGES.find(s => ds >= s.start && ds <= s.end) || STAGES[0];
+      const future = t && D(ds) > t;
+      const marks = unitsFor(ds, st.n).map((u,j) => {
+        const f = fillState(ds, i+j, u);
+        return `<i class="u ${f === "proof" ? "proof" : (f === "empty" ? "empty" : "")}"></i>`;
+      }).join("");
+      cells.push(`<div class="day${future ? " future" : ""}">${marks}</div>`);
+    }
+    daysHtml = `<div class="days">${cells.join("")}</div>`;
+  }
+
+  // сюжетные линии
+  let linesHtml = "";
+  if (mode !== "preview") {
+    linesHtml = `<div class="lines">` + STORY_LINES.map(l => {
+      const to = l.to || END;
+      const left = pos(l.from), width = span(l.from, to);
+      return `<div class="line"><div class="br${l.closed ? "" : " open"}"
+                style="left:${left}%;width:${Math.max(width, 12)}%">
+                <span class="cap"></span>${l.title}${l.closed ? "" : " — не закрыта"}
+              </div></div>`;
+    }).join("") + `</div>`;
+  }
+
+  // события и «сегодня»
+  // Метки событий стоят близко друг к другу в конце оси, поэтому разводим
+  // их по двум уровням и прижимаем крайние к краю — иначе подписи слипаются
+  // в нечитаемую кашу и последняя свисает за пределы карточки.
+  const marksHtml = `<div class="marks">` + EVENTS.map((e, i) => {
+      const x = pos(e.date) + span(e.date, e.date) / 2;
+      const level = i % 2;                       // 0 — верхний ряд, 1 — нижний
+      const edge = x > 88 ? " at-end" : (x < 6 ? " at-start" : "");
+      const shift = edge === " at-end" ? "translateX(-100%)"
+                  : (edge === " at-start" ? "none" : "translateX(-50%)");
+      return `<div class="mk${e.big ? " big" : ""}${edge}"
+                   style="left:${x}%;transform:${shift};top:${level * 24}px">
+                <i style="height:8px"></i>
+                ${e.label} ${fmt(e.date)}
+              </div>`;
+    }).join("") + `</div>`;
+
+  const todayHtml = t
+    ? `<div class="today" data-l="сегодня ${fmt(today)}" style="left:${pos(today)}%"></div>`
+    : "";
+
+  // дефицит вместо дублирующего списка
+  let gapsHtml = "";
+  if (mode !== "preview") {
+    gapsHtml = `<div class="gaps">` + GAPS.map(g => {
+      const st = STAGES.find(s => s.n === g.stage);
+      return `<div class="gap">
+        <span class="w" style="background:var(${st.color})"></span>
+        <b style="font-weight:600">${g.title}</b>
+        <span class="st">${g.note}</span>
+        <span class="d${g.crit ? " bad" : ""}">${g.days}</span>
+      </div>`;
+    }).join("") + `</div>`;
+  }
+
+  const legend = mode === "preview" ? "" : `<div class="legend">
+      <span><i class="sw" style="background:var(--or-soft);border:1.5px solid var(--warn)"></i>слот пуст</span>
+      <span><i class="sw" style="background:var(--ink);opacity:.20"></i>идея без пруфа</span>
+      <span><i class="sw" style="background:var(--ok);opacity:.55"></i>есть фактура</span>
+      <span><i class="sw" style="background:var(--s4)"></i>штриховка — плотность публикаций</span>
+    </div>`;
+
+  host.innerHTML = `
+    <div class="hd">
+      <span class="lead">${lead}</span>
+      <span class="facts">${facts}</span>
+    </div>
+    <div class="axis">
+      <div class="axis-inner">
+        ${todayHtml}
+        <div class="stages">${stagesHtml}</div>
+        ${daysHtml}
+        ${linesHtml}
+        ${marksHtml}
+        <div class="ends"><span>${fmt(START)}</span><span>${fmt(END)}</span></div>
+      </div>
+    </div>
+    ${gapsHtml}
+    ${legend}
+  `;
+}
+
+renderAxis(document.getElementById("c1"), {mode:"preview"});
+renderAxis(document.getElementById("c2"), {mode:"plan"});
+renderAxis(document.getElementById("c3"), {mode:"live", today:"2026-10-05"});
+</script>
