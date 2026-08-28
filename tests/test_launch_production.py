@@ -379,3 +379,36 @@ def test_new_routes_are_registered():
     assert paths.index("/api/v1/launches/reference") < paths.index(
         "/api/v1/launches/{launch_id}"
     )
+
+
+async def test_confirm_stage_takes_unmarked_slots_too(session, org):
+    """Подтверждение этапа берёт и слоты с пустой разметкой.
+
+    `markup_origin != 'human'` в SQL не видит NULL. Без явного IS NULL
+    неразмеченные слоты остались бы неподтверждёнными, а счётчик отрапортовал
+    бы, что этап закрыт.
+    """
+    from sqlalchemy import or_, select
+
+    from app.models.content_plan import PlannedPost
+    from app.services.launch.validators import ORIGIN_HUMAN
+
+    launch = await _launch(session, org, unrolled_on=TODAY)
+    await _slot(session, launch, SALES_OPEN - timedelta(days=9), launch_stage=4,
+                markup_origin=None)
+    await _slot(session, launch, SALES_OPEN - timedelta(days=8), launch_stage=4,
+                markup_origin="rule")
+    await _slot(session, launch, SALES_OPEN - timedelta(days=7), launch_stage=4,
+                markup_origin=ORIGIN_HUMAN)
+
+    rows = await session.scalars(
+        select(PlannedPost).where(
+            PlannedPost.launch_id == launch.id,
+            PlannedPost.launch_stage == 4,
+            or_(
+                PlannedPost.markup_origin.is_(None),
+                PlannedPost.markup_origin != ORIGIN_HUMAN,
+            ),
+        )
+    )
+    assert len(rows.all()) == 2, "неразмеченный слот должен попадать в выборку"

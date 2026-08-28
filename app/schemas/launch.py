@@ -338,6 +338,21 @@ class SlotCreate(BaseModel):
     knowledge_item_id: uuid.UUID | None = None
 
 
+class ConfirmStageRequest(BaseModel):
+    """Подтвердить разметку целого этапа.
+
+    Отдельная ручка, потому что в этапе бывает сорок слотов: слать сорок
+    запросов подряд значит сорок раз дёрнуть версию и получить гонку на
+    ровном месте.
+    """
+
+    stage: int = Field(ge=1, le=7)
+
+
+class ConfirmStageResponse(BaseModel):
+    confirmed: int
+
+
 class EvidenceOut(BaseModel):
     """Состояние одного смысла покупателя."""
 

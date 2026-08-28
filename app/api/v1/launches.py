@@ -8,7 +8,7 @@ import uuid
 from datetime import date as Date, datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.api.deps import CurrentUser, DbSession
 from app.models.content_plan import PlannedPost
@@ -27,6 +27,8 @@ from app.schemas.launch import (
     PlanResponse,
     QuestionRef,
     ReferenceResponse,
+    ConfirmStageRequest,
+    ConfirmStageResponse,
     EvidenceOut,
     EvidenceUpdate,
     ReportOut,
@@ -491,6 +493,43 @@ async def delete_slot(
         )
     await db.delete(slot)
     await db.flush()
+
+
+@router.post("/{launch_id}/slots/confirm", response_model=ConfirmStageResponse)
+async def confirm_stage(
+    launch_id: uuid.UUID,
+    payload: ConfirmStageRequest,
+    current: CurrentUser,
+    db: DbSession,
+) -> ConfirmStageResponse:
+    """Подтвердить разметку всех слотов этапа одним запросом.
+
+    Подтверждение — смысловое действие: только после него проверка
+    засчитывает покрытие. Этап подтверждают целиком, потому что разметка
+    внутри одного этапа однородна, а сорок отдельных запросов из интерфейса
+    дают сорок гонок за версию.
+    """
+    launch = await _owned(db, launch_id, current.organization_id)
+    slots = await db.scalars(
+        select(PlannedPost).where(
+            PlannedPost.launch_id == launch.id,
+            PlannedPost.launch_stage == payload.stage,
+            # `!= 'human'` в SQL не берёт NULL: у неразмеченного слота
+            # markup_origin пуст, и без явного IS NULL он бы молча остался
+            # неподтверждённым, а счётчик показал бы, что всё готово.
+            or_(
+                PlannedPost.markup_origin.is_(None),
+                PlannedPost.markup_origin != ORIGIN_HUMAN,
+            ),
+        )
+    )
+    n = 0
+    for slot in slots.all():
+        slot.markup_origin = ORIGIN_HUMAN
+        slot.version = (slot.version or 1) + 1
+        n += 1
+    await db.flush()
+    return ConfirmStageResponse(confirmed=n)
 
 
 # ---------------------------------------------------------------------------
