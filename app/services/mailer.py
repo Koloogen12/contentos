@@ -22,6 +22,7 @@ import logging
 import httpx
 
 from app.config import settings
+from app.services import mail_template
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,9 @@ def _sender() -> str:
     return f"{name} <{settings.MAIL_FROM}>" if name else settings.MAIL_FROM
 
 
-async def send_mail(*, to: str, subject: str, text: str) -> bool:
+async def send_mail(
+    *, to: str, subject: str, text: str, html: str | None = None
+) -> bool:
     """Send one plain-text message. Returns True if Resend accepted it.
 
     Never raises: a mail outage must not turn into a failed registration the
@@ -61,9 +64,12 @@ async def send_mail(*, to: str, subject: str, text: str) -> bool:
                     "from": _sender(),
                     "to": [to],
                     "subject": subject,
-                    # Plain text only. An HTML twin would have to be kept in
-                    # sync with it, and a six-digit code needs no layout.
+                    # Текстовая версия отправляется всегда, HTML — если есть.
+                    # Часть клиентов показывает текст в списке писем, часть
+                    # людей отключает HTML совсем; письмо должно читаться и
+                    # без вёрстки.
                     "text": text,
+                    **({"html": html} if html else {}),
                 },
             )
     except Exception:
@@ -80,15 +86,29 @@ async def send_mail(*, to: str, subject: str, text: str) -> bool:
     return True
 
 
-CODE_SUBJECT = "Код подтверждения THE DRAFT"
+CODE_SUBJECT = mail_template.CODE_SUBJECT
 
 
 def code_body(code: str) -> str:
-    minutes = settings.EMAIL_CODE_TTL_MINUTES
-    return (
-        f"Код подтверждения: {code}\n\n"
-        f"Введи его на странице регистрации. Код действует {minutes} минут.\n\n"
-        "Если код запрашивал не ты — просто проигнорируй письмо: "
-        "без подтверждения аккаунт не активируется.\n\n"
-        "THE DRAFT"
+    """Текстовая версия письма с кодом. Оставлена ради существующих вызовов."""
+    return mail_template.code_text(code)
+
+
+async def send_code(*, to: str, code: str) -> bool:
+    """Письмо с кодом подтверждения — свёрстанное, с текстовым дублем."""
+    return await send_mail(
+        to=to,
+        subject=mail_template.CODE_SUBJECT,
+        text=mail_template.code_text(code),
+        html=mail_template.code_html(code),
+    )
+
+
+async def send_welcome(*, to: str, name: str | None, app_url: str) -> bool:
+    """Приветственное письмо после подтверждения почты."""
+    return await send_mail(
+        to=to,
+        subject=mail_template.WELCOME_SUBJECT,
+        text=mail_template.welcome_text(name=name, app_url=app_url),
+        html=mail_template.welcome_html(name=name, app_url=app_url),
     )

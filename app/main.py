@@ -35,44 +35,42 @@ app.add_middleware(
 async def report_activity(request: Request, call_next):
     """Рассказать в Telegram о том, что сделал пользователь.
 
-    Отчёт снимается после ответа и отправляется фоном: наблюдение за
-    продуктом не должно ни ломать его, ни замедлять. Что считается
-    действием — в `services/activity.py`.
+    Отчёт снимается после ответа и уходит в буфер: наблюдение за продуктом не
+    должно ни ломать его, ни замедлять. Что считается действием и как
+    называется — в `services/activity.py`.
     """
     started = time.perf_counter()
     try:
         response = await call_next(request)
     except Exception:
-        # Необработанное исключение — самая важная новость из всех, поэтому
-        # сообщаем и пробрасываем дальше, а не глотаем.
+        # Необработанное исключение — самая важная новость, поэтому сообщаем
+        # и пробрасываем дальше, а не глотаем.
         took = int((time.perf_counter() - started) * 1000)
-        alerts.send(activity.format_event(
+        alerts.push(activity.to_event(
             method=request.method, path=request.url.path, status=500,
-            actor=_actor(request), duration_ms=took, detail="необработанное исключение",
+            actor=alerts.actor_of(getattr(request.state, "user", None)), duration_ms=took,
         ))
         raise
 
     took = int((time.perf_counter() - started) * 1000)
     if activity.should_report(request.method, request.url.path, response.status_code):
-        alerts.send(activity.format_event(
+        alerts.push(activity.to_event(
             method=request.method, path=request.url.path,
-            status=response.status_code, actor=_actor(request), duration_ms=took,
+            status=response.status_code,
+            actor=alerts.actor_of(getattr(request.state, "user", None)),
+            duration_ms=took,
         ))
     return response
 
 
-def _actor(request: Request) -> str | None:
-    """Кто сделал действие.
+@app.on_event("shutdown")
+async def flush_alerts() -> None:
+    """Досылать накопленное при остановке.
 
-    Пользователь достаётся из состояния запроса, если его туда положила
-    зависимость авторизации. Разбирать токен здесь заново не будем: это
-    работа middleware по наблюдению, а не по аутентификации, и своя копия
-    логики разбора рано или поздно разойдётся с настоящей.
+    Без этого события последних секунд перед деплоем теряются — а это ровно
+    те события, по которым потом выясняют, что пошло не так.
     """
-    user = getattr(request.state, "user", None)
-    if user is not None:
-        return getattr(user, "email", None) or str(getattr(user, "id", "")) or None
-    return None
+    await alerts.flush()
 
 
 app.include_router(api_router)

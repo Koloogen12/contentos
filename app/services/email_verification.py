@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.auth import EmailVerificationCode, User
 from app.services.auth import hash_password, verify_password
-from app.services.mailer import CODE_SUBJECT, code_body, send_mail
+from app.services.mailer import send_code
 
 CODE_LENGTH = 6
 
@@ -92,7 +92,7 @@ async def issue_code(db: AsyncSession, user: User, *, force: bool = False) -> tu
     )
     await db.flush()
 
-    delivered = await send_mail(to=user.email, subject=CODE_SUBJECT, text=code_body(code))
+    delivered = await send_code(to=user.email, code=code)
     return code, delivered
 
 

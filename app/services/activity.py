@@ -1,29 +1,30 @@
-"""Что считать действием пользователя и как о нём рассказать.
+"""Что считать действием пользователя и как его назвать.
 
-Задача звучала как «все успешные и неуспешные действия». Буквально все
-запросы слать нельзя: открытая вкладка плана делает десятки GET в минуту, и
-через час бот превращается в шум, который перестают читать. Поэтому действием
-считается одно из двух:
+Задача звучала как «все успешные и неуспешные действия». Буквально все запросы
+слать нельзя: открытая вкладка плана делает десятки GET в минуту. Поэтому
+действие — это одно из двух:
 
-* **изменение состояния** — POST, PATCH, PUT, DELETE. Человек что-то создал,
-  поправил или удалил;
+* **изменение состояния** — POST, PATCH, PUT, DELETE: человек что-то создал,
+  поправил, удалил или оплатил;
 * **любая неудача** — ответ 4xx или 5xx, включая неудачные GET. Отказ это тоже
-  результат, и о нём надо знать раньше, чем о нём напишет пользователь.
+  результат, и знать о нём надо раньше, чем о нём напишет пользователь.
 
-Успешные чтения не отправляются: они ничего не говорят о том, что происходит.
+Успешные чтения молчат.
 
-Список исключений ниже — не оптимизация, а защита от самозашумления: health
-проверяется мониторингом каждые несколько секунд, а обновление токена
-происходит у каждой вкладки раз в четверть часа.
+Названия событий здесь человеческие, а не маршрутные: «Создал запуск», а не
+`POST /api/v1/launches`. Точный путь показывается только при неудаче — когда он
+нужен, чтобы чинить.
 """
 from __future__ import annotations
 
 import re
 from typing import Final
 
-from app.services import alerts
+from app.services.alerts import Event
 
-#: Пути, которые не являются действием ни при каком исходе.
+#: Пути, которые не являются действием ни при каком исходе. Не оптимизация, а
+#: защита от самозашумления: health дёргает мониторинг каждые несколько секунд,
+#: refresh — каждая открытая вкладка раз в четверть часа.
 MUTED: Final[tuple[re.Pattern[str], ...]] = tuple(
     re.compile(p) for p in (
         r"^/health$",
@@ -33,22 +34,25 @@ MUTED: Final[tuple[re.Pattern[str], ...]] = tuple(
     )
 )
 
-#: Человеческие названия для того, что происходит чаще всего. Ключ — метод и
-#: шаблон пути; чем конкретнее правило, тем выше оно в списке.
-NAMES: Final[tuple[tuple[str, re.Pattern[str], str], ...]] = (
-    ("POST",   re.compile(r"^/api/v1/auth/register$"),            "Регистрация"),
-    ("POST",   re.compile(r"^/api/v1/auth/login$"),               "Вход"),
-    ("GET",    re.compile(r"^/api/v1/auth/yandex/callback$"),     "Вход через Яндекс"),
-    ("POST",   re.compile(r"^/api/v1/auth/verify"),               "Подтверждение почты"),
-    ("POST",   re.compile(r"^/api/v1/launches/[^/]+/plan$"),      "Развернул план запуска"),
-    ("POST",   re.compile(r"^/api/v1/launches/[^/]+/slots$"),     "Добавил слот"),
-    ("POST",   re.compile(r"^/api/v1/launches$"),                 "Создал запуск"),
-    ("POST",   re.compile(r"^/api/v1/nodes/[^/]+/run$"),          "Запустил ноду"),
-    ("POST",   re.compile(r"^/api/v1/canvases$"),                 "Создал канвас"),
-    ("POST",   re.compile(r"^/api/v1/knowledge"),                 "Добавил идею"),
-    ("POST",   re.compile(r"^/api/v1/content-plan/posts/[^/]+/publish$"), "Опубликовал пост"),
-    ("POST",   re.compile(r"^/api/v1/payments"),                  "Оплата"),
-    ("POST",   re.compile(r"^/api/v1/skills/[^/]+/run$"),         "Запустил скилл"),
+#: Метод, шаблон пути, иконка, название. Порядок важен: чем конкретнее правило,
+#: тем выше оно стоит.
+NAMES: Final[tuple[tuple[str, re.Pattern[str], str, str], ...]] = (
+    ("POST",   re.compile(r"^/api/v1/auth/register$"),                   "🆕", "Регистрация"),
+    ("POST",   re.compile(r"^/api/v1/auth/verify"),                      "📬", "Подтвердил почту"),
+    ("POST",   re.compile(r"^/api/v1/auth/login$"),                      "🔑", "Вход"),
+    ("GET",    re.compile(r"^/api/v1/auth/yandex/callback$"),            "🔑", "Вход через Яндекс"),
+    ("POST",   re.compile(r"^/api/v1/launches/[^/]+/plan$"),             "🗓", "Развернул план запуска"),
+    ("POST",   re.compile(r"^/api/v1/launches/[^/]+/slots/confirm$"),    "✅", "Подтвердил разметку этапа"),
+    ("POST",   re.compile(r"^/api/v1/launches/[^/]+/slots$"),            "➕", "Добавил слот"),
+    ("PATCH",  re.compile(r"^/api/v1/launches/[^/]+/evidence/"),         "📎", "Отметил фактуру"),
+    ("POST",   re.compile(r"^/api/v1/launches$"),                        "🚀", "Создал запуск"),
+    ("POST",   re.compile(r"^/api/v1/nodes/[^/]+/run$"),                 "✨", "AI-запрос"),
+    ("POST",   re.compile(r"^/api/v1/skills/[^/]+/run$"),                "✨", "Запустил скилл"),
+    ("POST",   re.compile(r"^/api/v1/canvases$"),                        "🎨", "Создал канвас"),
+    ("POST",   re.compile(r"^/api/v1/knowledge"),                        "💡", "Добавил идею"),
+    ("POST",   re.compile(r"^/api/v1/content-plan/posts/[^/]+/publish$"),"📤", "Опубликовал пост"),
+    ("POST",   re.compile(r"^/api/v1/payments"),                         "💳", "Оплата"),
+    ("POST",   re.compile(r"^/api/v1/connections"),                      "🔌", "Подключил канал"),
 )
 
 STATE_CHANGING: Final[frozenset[str]] = frozenset({"POST", "PATCH", "PUT", "DELETE"})
@@ -66,37 +70,35 @@ def should_report(method: str, path: str, status: int) -> bool:
     return method.upper() in STATE_CHANGING
 
 
-def title(method: str, path: str) -> str:
-    """Человеческое название действия, иначе — метод и путь."""
-    for m, pattern, name in NAMES:
+def _named(method: str, path: str) -> tuple[str, str] | None:
+    for m, pattern, icon, name in NAMES:
         if m == method.upper() and pattern.search(path):
-            return name
-    return f"{method.upper()} {path}"
+            return icon, name
+    return None
 
 
-def format_event(
-    *,
-    method: str,
-    path: str,
-    status: int,
-    actor: str | None,
-    duration_ms: int,
-    detail: str | None = None,
-) -> str:
-    """Собрать сообщение так, чтобы его можно было понять с телефона."""
+def to_event(
+    *, method: str, path: str, status: int, actor: str | None, duration_ms: int
+) -> Event:
+    """Собрать событие для отправки."""
+    known = _named(method, path)
     ok = status < 400
-    mark = "✅" if ok else ("⚠️" if status < 500 else "🔴")
-    lines = [f"{mark} <b>{alerts.esc(title(method, path))}</b>"]
 
-    who = actor or "гость"
-    lines.append(f"кто: {alerts.esc(who)}")
+    if ok:
+        icon, title = known or ("•", f"{method.upper()} {path}")
+        details: dict[str, object] = {}
+        # Долгий успешный запрос — тоже новость: генерации и разворот плана
+        # первыми упираются в потолок.
+        if duration_ms >= 3000:
+            details["сек"] = round(duration_ms / 1000, 1)
+        return Event(icon=icon, title=title, actor=actor, details=details or None)
 
-    if not ok:
-        lines.append(f"ответ: <code>{status}</code>")
-        if detail:
-            lines.append(f"причина: {alerts.esc(detail[:200])}")
-        # При неуспехе точный путь важнее названия: по нему чинят.
-        lines.append(f"<code>{alerts.esc(method.upper())} {alerts.esc(path)}</code>")
-
-    lines.append(f"<i>{duration_ms} мс</i>")
-    return "\n".join(lines)
+    icon = "⚠️" if status < 500 else "🔴"
+    title = (known[1] + " — не удалось") if known else "Ошибка"
+    return Event(
+        icon=icon,
+        title=title,
+        actor=actor,
+        # При неудаче путь важнее названия: по нему чинят.
+        details={"код": status, "путь": f"{method.upper()} {path}"},
+    )
