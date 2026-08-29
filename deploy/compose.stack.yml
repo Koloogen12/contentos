@@ -1,0 +1,141 @@
+# ContentOS — самодостаточный стек.
+#
+# Отличие от прежнего `compose.prod.yml` одно, но принципиальное: Postgres и
+# Redis живут здесь, а не на хосте.
+#
+# Раньше они были системными сервисами Selectel, причём пароль Redis читался
+# из конфига постороннего продукта (`ohmybet`). Из-за этого деплой не
+# переносился на чистую машину вообще, а база ContentOS оказалась вне Docker —
+# и при переезде «копированием томов» терялась целиком. Мы на этом и
+# споткнулись, когда Selectel отключили.
+#
+# Наружу стек не смотрит: TLS и маршрутизацию берёт Caddy из /opt/caddy,
+# оба подключены к внешней сети `edge`. Порты на хост не публикуются.
+#
+# Раскладка на сервере:
+#   /opt/stacks/contentos/backend/     код бэкенда
+#   /opt/stacks/contentos/frontend/    код фронтенда
+#   /opt/stacks/contentos/compose.yml  этот файл
+#   /opt/stacks/contentos/.env         DOMAIN, PUBLIC_URL_*
+#   /etc/contentos/secrets.env         секреты (root, 600)
+
+name: contentos
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: contentos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: contentos
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # Наружу не публикуется намеренно: база доступна только внутри стека.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contentos -d contentos"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [internal]
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - /etc/contentos/secrets.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://contentos:${POSTGRES_PASSWORD}@db:5432/contentos
+      DATABASE_SYNC_URL: postgresql+psycopg://contentos:${POSTGRES_PASSWORD}@db:5432/contentos
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      APP_ENV: production
+      APP_DEBUG: "false"
+      CORS_ORIGINS: ${PUBLIC_URL_FRONT}
+      MAX_UPLOAD_SIZE_MB: "500"
+      TEMP_DIR: /tmp/contentos
+      # Без этого Python буферизует stdout, и `docker logs api` выглядит
+      # пустым, пока буфер не заполнится.
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - media-cache:/tmp/contentos
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [internal, edge]
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - /etc/contentos/secrets.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://contentos:${POSTGRES_PASSWORD}@db:5432/contentos
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      APP_ENV: production
+      APP_DEBUG: "false"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - media-cache:/tmp/contentos
+    # arq 0.26.3 с uvloop спотыкается на `asyncio.get_event_loop()` в главном
+    # потоке на Python 3.11+. Обходим CLI arq и поднимаем Worker внутри
+    # `asyncio.run()`, чтобы get_event_loop() нашёл работающий цикл.
+    command:
+      - python
+      - -c
+      - |
+        import asyncio
+        async def main():
+            from app.workers.queue import WorkerSettings
+            from arq.worker import create_worker
+            worker = create_worker(WorkerSettings)
+            await worker.async_run()
+        asyncio.run(main())
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [internal]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_URL_API}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_URL_API}
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    restart: unless-stopped
+    networks: [edge]
+
+volumes:
+  db-data:
+  redis-data:
+  media-cache:
+
+networks:
+  # Базы видны только приложению.
+  internal:
+  # Через неё Caddy достаёт api и frontend.
+  edge:
+    external: true
