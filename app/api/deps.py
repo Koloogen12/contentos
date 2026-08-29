@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, Header, HTTPException, Query, status
+from fastapi import Depends, Header, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,13 +43,20 @@ async def _user_from_access_token(db: AsyncSession, token: str) -> User:
 
 
 async def get_current_user(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
     db: DbSession,
 ) -> User:
-    return await _user_from_access_token(db, credentials.credentials)
+    user = await _user_from_access_token(db, credentials.credentials)
+    # Кладём пользователя в состояние запроса, чтобы middleware уведомлений
+    # знало, кто совершил действие. Разбирать токен второй раз оно не должно:
+    # своя копия логики разбора со временем разойдётся с этой.
+    request.state.user = user
+    return user
 
 
 async def get_current_user_query_or_header(
+    request: Request,
     db: DbSession,
     token: str | None = Query(default=None),
     authorization: str | None = Header(default=None),
@@ -65,7 +72,9 @@ async def get_current_user_query_or_header(
             raw = authorization[7:].strip()
     if not raw:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing token")
-    return await _user_from_access_token(db, raw)
+    user = await _user_from_access_token(db, raw)
+    request.state.user = user
+    return user
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]

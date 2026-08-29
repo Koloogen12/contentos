@@ -108,6 +108,13 @@ class Settings(BaseSettings):
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
 
+    #: Чат, куда уходят уведомления о действиях пользователей.
+    #:
+    #: Тот же бот, что публикует контент, но адресат другой — владелец
+    #: продукта. Пусто в разработке: тогда уведомления просто не шлются,
+    #: а приложение работает как обычно.
+    TELEGRAM_ALERT_CHAT_ID: str = ""
+
     # LinkedIn OAuth — single org-wide app credentials (Sprint 2 Track C).
     # Register at https://developer.linkedin.com/. The redirect URI MUST
     # match what's configured in the LinkedIn app exactly, including the
